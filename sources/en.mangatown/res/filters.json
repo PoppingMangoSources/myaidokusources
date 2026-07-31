@@ -1,0 +1,147 @@
+[
+	{
+		"type": "sort",
+		"id": "sort",
+		"canAscend": false,
+		"default": 0,
+		"options": [
+			"Views",
+			"A-Z",
+			"Rating",
+			"Latest Updated"
+		]
+	},
+	{
+		"type": "select",
+		"id": "demographic",
+		"title": "Demographic",
+		"options": [
+			"All",
+			"Shounen",
+			"Seinen",
+			"Shoujo",
+			"Shoujo Ai",
+			"Josei",
+			"Shounen Ai",
+			"Yaoi",
+			"Yuri"
+		],
+		"ids": [
+			"",
+			"shounen",
+			"seinen",
+			"shoujo",
+			"shoujo_ai",
+			"josei",
+			"shounen_ai",
+			"yaoi",
+			"yuri"
+		]
+	},
+	{
+		"type": "select",
+		"id": "completed",
+		"title": "Status",
+		"options": [
+			"All",
+			"Completed",
+			"Ongoing"
+		],
+		"ids": [
+			"",
+			"1",
+			"0"
+		]
+	},
+	{
+		"type": "multi-select",
+		"id": "genres",
+		"title": "Genres",
+		"isGenre": true,
+		"canExclude": true,
+		"options": [
+			"4 Koma",
+			"Action",
+			"Adventure",
+			"Comedy",
+			"Cooking",
+			"Doujinshi",
+			"Drama",
+			"Ecchi",
+			"Fantasy",
+			"Gender Bender",
+			"Harem",
+			"Historical",
+			"Horror",
+			"Martial Arts",
+			"Mature",
+			"Mecha",
+			"Music",
+			"Mystery",
+			"One Shot",
+			"Psychological",
+			"Reverse Harem",
+			"Romance",
+			"School Life",
+			"Sci Fi",
+			"Shotacon",
+			"Slice Of Life",
+			"Smut",
+			"Sports",
+			"Supernatural",
+			"Suspense",
+			"Tragedy",
+			"Vampire",
+			"Webtoons",
+			"Youkai"
+		],
+		"ids": [
+			"4_koma",
+			"action",
+			"adventure",
+			"comedy",
+			"cooking",
+			"doujinshi",
+			"drama",
+			"ecchi",
+			"fantasy",
+			"gender_bender",
+			"harem",
+			"historical",
+			"horror",
+			"martial_arts",
+			"mature",
+			"mecha",
+			"music",
+			"mystery",
+			"one_shot",
+			"psychological",
+			"reverse_harem",
+			"romance",
+			"school_life",
+			"sci_fi",
+			"shotacon",
+			"slice_of_life",
+			"smut",
+			"sports",
+			"supernatural",
+			"suspense",
+			"tragedy",
+			"vampire",
+			"webtoons",
+			"youkai"
+		]
+	},
+	{
+		"type": "text",
+		"id": "author",
+		"title": "Author",
+		"placeholder": "Author name"
+	},
+	{
+		"type": "text",
+		"id": "artist",
+		"title": "Artist",
+		"placeholder": "Artist name"
+	}
+]

@@ -1,0 +1,15 @@
+{
+	"info": {
+		"id": "en.mangatown",
+		"name": "MangaTown",
+		"version": 1,
+		"url": "https://www.mangatown.com",
+		"contentRating": 1,
+		"languages": ["en"]
+	},
+	"listings": [
+		{ "id": "views", "name": "Popular" },
+		{ "id": "latest", "name": "Latest Updates" },
+		{ "id": "rating", "name": "Top Rated" }
+	]
+}

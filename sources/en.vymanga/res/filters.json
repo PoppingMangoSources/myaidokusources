@@ -1,0 +1,15 @@
+[
+	{
+		"type": "sort",
+		"id": "sort",
+		"canAscend": false,
+		"default": 0,
+		"options": ["Relevance", "Latest Updated", "Top Rated", "Newest"]
+	},
+	{
+		"type": "text",
+		"id": "author",
+		"title": "Author",
+		"placeholder": "Author name"
+	}
+]

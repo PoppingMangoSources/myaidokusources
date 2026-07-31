@@ -1,0 +1,15 @@
+{
+	"info": {
+		"id": "en.vymanga",
+		"name": "VyManga",
+		"version": 1,
+		"url": "https://vymanga.com",
+		"contentRating": 1,
+		"languages": ["en"]
+	},
+	"listings": [
+		{ "id": "updated_at", "name": "Latest Updated" },
+		{ "id": "scored", "name": "Top Rated" },
+		{ "id": "created_at", "name": "Newest" }
+	]
+}
