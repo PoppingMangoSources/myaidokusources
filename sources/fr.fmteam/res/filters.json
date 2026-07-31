@@ -1,8 +1,0 @@
-[
-	{
-		"type": "sort",
-		"id": "order",
-		"canAscend": false,
-		"options": ["A-Z", "Z-A", "Dernières Sorties", "Notes", "Populaire"]
-	}
-]

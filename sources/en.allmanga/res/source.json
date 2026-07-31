@@ -1,0 +1,31 @@
+{
+	"info": {
+		"id": "en.allmanga",
+		"name": "AllManga",
+		"version": 1,
+		"url": "https://allmanga.to",
+		"contentRating": 1,
+		"languages": ["en"]
+	},
+	"config": {
+		"supportsTagSearch": true
+	},
+	"listings": [
+		{
+			"id": "popular",
+			"name": "Popular"
+		},
+		{
+			"id": "popular_week",
+			"name": "Popular This Week"
+		},
+		{
+			"id": "popular_month",
+			"name": "Popular This Month"
+		},
+		{
+			"id": "latest",
+			"name": "Latest Updates"
+		}
+	]
+}

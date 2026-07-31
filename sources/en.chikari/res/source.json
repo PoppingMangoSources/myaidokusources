@@ -1,0 +1,39 @@
+{
+	"info": {
+		"id": "en.chikari",
+		"name": "Chikari",
+		"version": 1,
+		"url": "https://chikari.moe",
+		"contentRating": 1,
+		"languages": ["en"]
+	},
+	"config": {
+		"supportsTagSearch": true
+	},
+	"listings": [
+		{
+			"id": "popular",
+			"name": "Popular"
+		},
+		{
+			"id": "trending",
+			"name": "Trending"
+		},
+		{
+			"id": "top_rated",
+			"name": "Top Rated"
+		},
+		{
+			"id": "updated",
+			"name": "Recently Updated"
+		},
+		{
+			"id": "added",
+			"name": "Recently Added"
+		},
+		{
+			"id": "most_bookmarked",
+			"name": "Most Bookmarked"
+		}
+	]
+}

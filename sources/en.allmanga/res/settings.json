@@ -1,0 +1,29 @@
+[
+	{
+		"type": "group",
+		"footer": "Wp quality servers can be slower and may occasionally fail.",
+		"items": [
+			{
+				"type": "select",
+				"key": "imageQuality",
+				"title": "Image Quality",
+				"values": ["original", "800", "480"],
+				"titles": ["Original", "Wp-800", "Wp-480"],
+				"default": "original"
+			}
+		]
+	},
+	{
+		"type": "group",
+		"footer": "Show adult/NSFW titles across discover and search. Off by default.",
+		"items": [
+			{
+				"type": "switch",
+				"key": "showAdult",
+				"title": "Show Adult Content",
+				"default": false,
+				"refreshes": ["content"]
+			}
+		]
+	}
+]

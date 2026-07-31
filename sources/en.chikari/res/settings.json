@@ -1,0 +1,27 @@
+[
+	{
+		"type": "group",
+		"title": "Content",
+		"footer": "Erotica or Pornographic ratings enable adult content across discover and search.",
+		"items": [
+			{
+				"type": "multi-select",
+				"key": "contentTypes",
+				"title": "Content Types",
+				"values": ["manga", "manhwa", "manhua", "oel"],
+				"titles": ["Manga", "Manhwa", "Manhua", "OEL"],
+				"default": ["manga", "manhwa", "manhua"],
+				"refreshes": ["content"]
+			},
+			{
+				"type": "multi-select",
+				"key": "contentRatings",
+				"title": "Content Ratings",
+				"values": ["safe", "suggestive", "erotica", "pornographic"],
+				"titles": ["Safe", "Suggestive", "Erotica", "Pornographic"],
+				"default": ["safe", "suggestive"],
+				"refreshes": ["content"]
+			}
+		]
+	}
+]

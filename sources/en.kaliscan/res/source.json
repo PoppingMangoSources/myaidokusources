@@ -1,0 +1,10 @@
+{
+	"info": {
+		"id": "en.kaliscan",
+		"name": "KaliScan",
+		"version": 1,
+		"url": "https://kaliscan.io",
+		"contentRating": 1,
+		"languages": ["en"]
+	}
+}
