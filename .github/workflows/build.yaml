@@ -1,4 +1,5 @@
 name: Build sources
+
 on:
   push:
     branches:
@@ -7,6 +8,10 @@ on:
       - "sources/**"
       - "templates/**"
       - ".github/workflows/build.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 concurrency:
   group: ${{ github.workflow }}
@@ -18,10 +23,14 @@ jobs:
       RUSTC_WRAPPER: sccache
       SCCACHE_CACHE_SIZE: 2G
       SCCACHE_VERSION: 0.3.0
+
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: google/wireit@setup-github-actions-caching/v1
+
       - name: Cache rust stuff
         uses: actions/cache@v4
         with:
@@ -34,17 +43,21 @@ jobs:
           key: ${{ runner.os }}-cargo3-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo3-
+
       - name: sccache
         uses: actions/cache@v4
         with:
           path: ~/.cache/sccache
           key: ${{ runner.os }}-sccache-${{ github.sha }}
-          restore-keys: ${{ runner.os }}-sccache-
+          restore-keys: |
+            ${{ runner.os }}-sccache-
+
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           override: true
           target: wasm32-unknown-unknown
+
       - name: Install build dependencies
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -54,6 +67,7 @@ jobs:
           if ! command -v aidoku >/dev/null 2>&1; then
             cargo install --git https://github.com/Aidoku/aidoku-rs aidoku-cli
           fi
+
       - name: Build sources
         run: |
           for src in ./sources/*; do
@@ -62,11 +76,13 @@ jobs:
               aidoku package
             )
           done
+
       - name: Build source list
         run: |
           aidoku build sources/*/package.aix --name "Aidoku Community Sources"
+
       - name: Deploy to GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@v4.7.2
+        uses: JamesIves/github-pages-deploy-action@v4.8.0
         if: ${{ github.ref == 'refs/heads/main' }}
         with:
           branch: gh-pages
@@ -75,6 +91,7 @@ jobs:
           git-config-email: github-actions[bot]@users.noreply.github.com
           commit-message: Update source list
           single-commit: true
+
       - name: Uploading packages as artifact
         uses: actions/upload-artifact@v4
         if: always()
@@ -82,6 +99,7 @@ jobs:
           name: packages
           path: public/sources/*.aix
           if-no-files-found: ignore
+
       - name: Uploading gh-pages deployment as artifact
         uses: actions/upload-artifact@v4
         if: always()
