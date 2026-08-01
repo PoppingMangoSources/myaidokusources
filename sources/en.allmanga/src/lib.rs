@@ -10,7 +10,6 @@ use aidoku::{
 };
 use serde_json::Value;
 
-mod crypto;
 mod models;
 mod network;
 mod parsers;
@@ -18,7 +17,7 @@ mod settings;
 mod webview;
 
 use models::*;
-use network::{fetch_chapter_pages_via_api, make_request};
+use network::make_request;
 use parsers::*;
 
 struct Mkissa;
@@ -261,21 +260,7 @@ impl Source for Mkissa {
 	}
 
 	fn get_page_list(&self, manga: Manga, chapter: Chapter) -> Result<Vec<Page>> {
-		let quality = settings::image_quality();
-
-		// The reader resolves its own pages, so let it run before falling back
-		// to the signed API, which depends on build-specific signing values.
-		let mut urls = webview::page_urls_via_webview(&manga.key, &chapter.key).unwrap_or_default();
-
-		if urls.is_empty()
-			&& let Some(pages) = fetch_chapter_pages_via_api(&manga.key, &chapter.key)?
-		{
-			urls = parse_page_urls(&pages, &quality);
-		}
-
-		if urls.is_empty() {
-			bail!("No pages found for chapter {}", chapter.key);
-		}
+		let urls = webview::page_urls_via_webview(&manga.key, &chapter.key)?;
 		Ok(urls
 			.into_iter()
 			.map(|url| Page {

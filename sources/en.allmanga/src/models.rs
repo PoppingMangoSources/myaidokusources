@@ -22,8 +22,6 @@ pub const DETAILS_QUERY: &str = "query($id: String!) {\n  manga(_id: $id) { _id 
 
 pub const CHAPTERS_QUERY: &str = "query($id: String!, $showId: String!) {\n  manga(_id: $id) { _id name availableChaptersDetail }\n  episodeInfos(showId: $showId, episodeNumStart: 0, episodeNumEnd: 9999) { episodeIdNum notes uploadDates }\n}";
 
-pub const PAGES_QUERY: &str = "query($mangaId: String!, $translationType: VaildTranslationTypeMangaEnumType!, $chapterString: String!, $limit: Int!, $offset: Int) {\n  chapterPages(mangaId: $mangaId, translationType: $translationType, chapterString: $chapterString, limit: $limit, offset: $offset) {\n    edges { pictureUrlHead pictureUrls }\n    manga { _id countryOfOrigin }\n  }\n}";
-
 #[derive(Deserialize)]
 pub struct GraphQLResponse<T> {
 	pub data: Option<T>,
@@ -185,13 +183,6 @@ pub struct ChapterPageEdge {
 #[derive(Deserialize)]
 pub struct ChapterPages {
 	pub edges: Vec<ChapterPageEdge>,
-}
-
-#[derive(Deserialize)]
-pub struct SigningBootstrap {
-	pub epoch: i64,
-	#[serde(rename = "partB")]
-	pub part_b: String,
 }
 
 pub const GENRE_OPTIONS: &[&str] = &[

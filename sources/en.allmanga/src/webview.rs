@@ -88,6 +88,14 @@ pub fn page_urls_via_webview(manga_id: &str, chapter: &str) -> Result<Vec<String
 
 fn collect_pages(manga_id: &str, chapter: &str) -> Result<Vec<String>> {
 	let reader_url = format!("{DOMAIN}/manga/{manga_id}/chapter-{chapter}-sub");
+	let response = Request::get(&reader_url)?
+		.header("Referer", &format!("{DOMAIN}/"))
+		.header("Accept", "text/html,application/xhtml+xml,*/*;q=0.8")
+		.send()?;
+	if response.status_code() >= 400 {
+		bail!("Mkissa reader returned HTTP {}", response.status_code());
+	}
+
 	let web_view = WebView::new();
 	let mut user_script = WebViewUserScript::new(capture_script());
 	user_script.at_document_end = false;
