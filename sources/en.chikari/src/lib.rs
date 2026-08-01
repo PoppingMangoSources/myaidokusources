@@ -394,20 +394,48 @@ impl Home for Chikari {
 						"recently-added" => ("Recently Added", "added"),
 						_ => continue,
 					};
-					let entries = row.items.into_iter().map(item_to_link).collect();
+					let entries: Vec<Link> = row.items.into_iter().map(item_to_link).collect();
+					let listing = Some(Listing {
+						id: listing_id.into(),
+						name: title.into(),
+						..Default::default()
+					});
+					// Top Rated reads as a chart, so show it ranked.
+					let value = if slug == "top-rated" {
+						HomeComponentValue::MangaList {
+							ranking: true,
+							page_size: Some(10),
+							entries,
+							listing,
+						}
+					} else {
+						HomeComponentValue::Scroller { entries, listing }
+					};
 					components.push(HomeComponent {
 						title: Some(title.into()),
 						subtitle: None,
-						value: HomeComponentValue::Scroller {
-							entries,
-							listing: Some(Listing {
-								id: listing_id.into(),
-								name: title.into(),
-								..Default::default()
-							}),
-						},
+						value,
 					});
 				}
+			}
+		}
+
+		// The home feed has no bookmark row, so pull it from the series endpoint.
+		if let Ok(data) = fetch_series("most_bookmarked", None, &[], &[], 0) {
+			let entries: Vec<Link> = data.items.into_iter().map(item_to_link).collect();
+			if !entries.is_empty() {
+				components.push(HomeComponent {
+					title: Some("Most Bookmarked".into()),
+					subtitle: None,
+					value: HomeComponentValue::Scroller {
+						entries,
+						listing: Some(Listing {
+							id: "most_bookmarked".into(),
+							name: "Most Bookmarked".into(),
+							..Default::default()
+						}),
+					},
+				});
 			}
 		}
 

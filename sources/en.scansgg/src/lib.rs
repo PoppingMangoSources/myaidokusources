@@ -499,29 +499,68 @@ impl Home for ScansGG {
 			}
 		}
 
-		// Most Popular ranges
-		let ranges = [
-			("Today", "daily"),
-			("This Week", "weekly"),
-			("3 Months", "3months"),
-			("6 Months", "6months"),
-			("1 Year", "1year"),
-		];
-		let range_items: Vec<FilterItem> = ranges
-			.iter()
-			.map(|(label, id)| FilterItem {
-				title: (*label).into(),
-				values: Some(vec![FilterValue::Select {
-					id: "popular".into(),
-					value: (*id).into(),
-				}]),
-			})
-			.collect();
-		components.push(HomeComponent {
-			title: Some("Most Popular".into()),
-			subtitle: None,
-			value: HomeComponentValue::Filters(range_items),
-		});
+		// Popular over shorter windows.
+		for (title, listing_id, range) in [
+			("Popular Today", "popular_daily", "daily"),
+			("Popular This Week", "popular_weekly", "weekly"),
+		] {
+			let mut qs = QueryParameters::new();
+			qs.push("popular", Some(range));
+			qs.push("limit", Some(&POPULAR_FETCH_SIZE.to_string()));
+			qs.push("chapters", Some("true"));
+			qs.push("group_details", Some("true"));
+			if let Ok((data, _)) = fetch_series_list(&qs.to_string()) {
+				let entries: Vec<Link> = data
+					.into_iter()
+					.filter(|s| s.cover.is_some())
+					.map(series_to_link)
+					.collect();
+				if !entries.is_empty() {
+					components.push(HomeComponent {
+						title: Some(title.into()),
+						subtitle: None,
+						value: HomeComponentValue::Scroller {
+							entries,
+							listing: Some(Listing {
+								id: listing_id.into(),
+								name: title.into(),
+								..Default::default()
+							}),
+						},
+					});
+				}
+			}
+		}
+
+		// Ranked monthly chart.
+		let mut qs = QueryParameters::new();
+		qs.push("popular", Some("monthly"));
+		qs.push("limit", Some(&POPULAR_FETCH_SIZE.to_string()));
+		qs.push("chapters", Some("true"));
+		qs.push("group_details", Some("true"));
+		if let Ok((data, _)) = fetch_series_list(&qs.to_string()) {
+			let entries: Vec<Link> = data
+				.into_iter()
+				.filter(|s| s.cover.is_some())
+				.map(series_to_link)
+				.collect();
+			if !entries.is_empty() {
+				components.push(HomeComponent {
+					title: Some("Popular This Month".into()),
+					subtitle: None,
+					value: HomeComponentValue::MangaList {
+						ranking: true,
+						page_size: Some(10),
+						entries,
+						listing: Some(Listing {
+							id: "popular_monthly".into(),
+							name: "Popular This Month".into(),
+							..Default::default()
+						}),
+					},
+				});
+			}
+		}
 
 		// Latest Updates
 		let mut qs = QueryParameters::new();
@@ -583,6 +622,26 @@ impl Home for ScansGG {
 			}
 		}
 
+		// Genre shortcuts.
+		let genre_items: Vec<FilterItem> = (1..=49)
+			.filter_map(|id| tag_name(id).map(|name| (id, name)))
+			.map(|(id, name)| FilterItem {
+				title: name.into(),
+				values: Some(vec![FilterValue::MultiSelect {
+					id: "genres".into(),
+					included: vec![id.to_string()],
+					excluded: Vec::new(),
+				}]),
+			})
+			.collect();
+		if !genre_items.is_empty() {
+			components.push(HomeComponent {
+				title: Some("Genres".into()),
+				subtitle: None,
+				value: HomeComponentValue::Filters(genre_items),
+			});
+		}
+
 		Ok(HomeLayout { components })
 	}
 }
@@ -591,9 +650,14 @@ impl ListingProvider for ScansGG {
 	fn get_manga_list(&self, listing: Listing, page: i32) -> Result<MangaPageResult> {
 		let page = page.max(1);
 		match listing.id.as_str() {
-			"popular" => {
+			"popular_daily" | "popular_weekly" | "popular_monthly" => {
+				let range = match listing.id.as_str() {
+					"popular_daily" => "daily",
+					"popular_weekly" => "weekly",
+					_ => "monthly",
+				};
 				let mut qs = QueryParameters::new();
-				qs.push("popular", Some("monthly"));
+				qs.push("popular", Some(range));
 				qs.push("limit", Some(&POPULAR_FETCH_SIZE.to_string()));
 				qs.push("chapters", Some("true"));
 				qs.push("group_details", Some("true"));

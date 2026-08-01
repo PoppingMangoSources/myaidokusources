@@ -318,7 +318,8 @@ impl Home for AllManga {
 	fn get_home(&self) -> Result<HomeLayout> {
 		let mut components: Vec<HomeComponent> = Vec::new();
 
-		if let Ok((recommendations, _)) = popular_cards(0, 1) {
+		// Banner of what's hot right now.
+		if let Ok((recommendations, _)) = popular_cards(1, 1) {
 			let entries: Vec<Manga> = recommendations
 				.into_iter()
 				.filter_map(|rec| rec.any_card)
@@ -326,11 +327,11 @@ impl Home for AllManga {
 				.collect();
 			if !entries.is_empty() {
 				components.push(HomeComponent {
-					title: Some("Popular".into()),
+					title: Some("Popular Today".into()),
 					subtitle: None,
 					value: HomeComponentValue::BigScroller {
 						entries,
-						auto_scroll_interval: Some(5.0),
+						auto_scroll_interval: Some(6.0),
 					},
 				});
 			}
@@ -360,6 +361,31 @@ impl Home for AllManga {
 						},
 					});
 				}
+			}
+		}
+
+		// Ranked all-time chart.
+		if let Ok((recommendations, _)) = popular_cards(0, 1) {
+			let entries: Vec<Link> = recommendations
+				.into_iter()
+				.filter_map(|rec| rec.any_card)
+				.map(card_to_link)
+				.collect();
+			if !entries.is_empty() {
+				components.push(HomeComponent {
+					title: Some("Popular All Time".into()),
+					subtitle: None,
+					value: HomeComponentValue::MangaList {
+						ranking: true,
+						page_size: Some(10),
+						entries,
+						listing: Some(Listing {
+							id: "popular_all_time".into(),
+							name: "Popular All Time".into(),
+							..Default::default()
+						}),
+					},
+				});
 			}
 		}
 
@@ -400,7 +426,7 @@ impl Home for AllManga {
 						page_size: None,
 						entries,
 						listing: Some(Listing {
-							id: "latest".into(),
+							id: "latest_updates".into(),
 							name: "Latest Updates".into(),
 							..Default::default()
 						}),
@@ -456,10 +482,11 @@ impl ListingProvider for AllManga {
 	fn get_manga_list(&self, listing: Listing, page: i32) -> Result<MangaPageResult> {
 		let page = page.max(1);
 		match listing.id.as_str() {
-			"popular" => popular_listing(0, page),
+			"popular_today" => popular_listing(1, page),
 			"popular_week" => popular_listing(7, page),
 			"popular_month" => popular_listing(30, page),
-			"latest" => {
+			"popular_all_time" => popular_listing(0, page),
+			"latest_updates" => {
 				let data = latest_data(page)?;
 				let has_next_page = data.mangas.edges.len() as i32 == LIMIT;
 				let entries = data.mangas.edges.into_iter().map(card_to_manga).collect();

@@ -396,17 +396,25 @@ impl Home for VyManga {
 					})
 					.collect();
 				if !entries.is_empty() {
+					let listing = Some(Listing {
+						id: sort.into(),
+						name: title.into(),
+						..Default::default()
+					});
+					let value = if sort == "scored" {
+						HomeComponentValue::MangaList {
+							ranking: true,
+							page_size: Some(10),
+							entries,
+							listing,
+						}
+					} else {
+						HomeComponentValue::Scroller { entries, listing }
+					};
 					components.push(HomeComponent {
 						title: Some(title.into()),
 						subtitle: None,
-						value: HomeComponentValue::Scroller {
-							entries,
-							listing: Some(Listing {
-								id: sort.into(),
-								name: title.into(),
-								..Default::default()
-							}),
-						},
+						value,
 					});
 				}
 			}

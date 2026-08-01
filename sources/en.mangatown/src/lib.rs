@@ -667,7 +667,9 @@ impl Home for MangaTown {
 				components.push(HomeComponent {
 					title: Some("Top Rated".into()),
 					subtitle: None,
-					value: HomeComponentValue::Scroller {
+					value: HomeComponentValue::MangaList {
+						ranking: true,
+						page_size: Some(10),
 						entries,
 						listing: Some(Listing {
 							id: "rating".into(),

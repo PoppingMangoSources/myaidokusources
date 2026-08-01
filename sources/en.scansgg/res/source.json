@@ -12,8 +12,16 @@
 	},
 	"listings": [
 		{
-			"id": "popular",
-			"name": "Most Popular"
+			"id": "popular_daily",
+			"name": "Popular Today"
+		},
+		{
+			"id": "popular_weekly",
+			"name": "Popular This Week"
+		},
+		{
+			"id": "popular_monthly",
+			"name": "Popular This Month"
 		},
 		{
 			"id": "latest",
