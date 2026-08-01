@@ -1,0 +1,33 @@
+[
+	{
+		"type": "sort",
+		"id": "sort",
+		"canAscend": false,
+		"default": { "index": 0, "ascending": false },
+		"options": [
+			"Latest Chapter",
+			"Newest Manga",
+			"Most Viewed",
+			"Top This Month",
+			"Top This Week",
+			"Top Today",
+			"Most Followed",
+			"Most Commented",
+			"Most Chapters"
+		]
+	},
+	{
+		"type": "select",
+		"id": "status",
+		"title": "Status",
+		"options": ["All", "Complete", "In process", "Pause"],
+		"ids": ["", "Complete", "In process", "Pause"]
+	},
+	{
+		"type": "select",
+		"id": "min_chapters",
+		"title": "Minimum Chapters",
+		"options": ["Any", "50+", "100+", "200+", "300+", "400+", "500+"],
+		"ids": ["", "50", "100", "200", "300", "400", "500"]
+	}
+]

@@ -1,0 +1,21 @@
+{
+	"info": {
+		"id": "en.mvlempyr",
+		"name": "MVLEMPYR",
+		"version": 1,
+		"url": "https://www.mvlempyr.io",
+		"contentRating": 1,
+		"languages": ["en"]
+	},
+	"config": {
+		"supportsTagSearch": true
+	},
+	"listings": [
+		{ "id": "popular", "name": "Popular" },
+		{ "id": "top_rated", "name": "Top Rated" },
+		{ "id": "most_reviewed", "name": "Most Reviewed" },
+		{ "id": "new_arrivals", "name": "New Arrivals" },
+		{ "id": "completed", "name": "Completed" },
+		{ "id": "latest", "name": "New Updates" }
+	]
+}

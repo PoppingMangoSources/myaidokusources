@@ -1,0 +1,129 @@
+[
+	{
+		"type": "sort",
+		"id": "sort",
+		"canAscend": false,
+		"default": {
+			"index": 0,
+			"ascending": false
+		},
+		"options": [
+			"Popular",
+			"Top Rated",
+			"Most Reviewed",
+			"New Arrivals",
+			"Most Chapters",
+			"Title"
+		]
+	},
+	{
+		"type": "select",
+		"id": "status",
+		"title": "Status",
+		"options": [
+			"All",
+			"Ongoing",
+			"Completed",
+			"Hiatus"
+		],
+		"ids": [
+			"all",
+			"ongoing",
+			"completed",
+			"hiatus"
+		]
+	},
+	{
+		"type": "multi-select",
+		"id": "genres",
+		"title": "Genres",
+		"isGenre": true,
+		"canExclude": true,
+		"options": [
+			"Action",
+			"Adult",
+			"Adventure",
+			"Comedy",
+			"Drama",
+			"Ecchi",
+			"Fan-Fiction",
+			"Fantasy",
+			"Gender Bender",
+			"Harem",
+			"Historical",
+			"Horror",
+			"Josei",
+			"Martial Arts",
+			"Mature",
+			"Mecha",
+			"Mystery",
+			"Psychological",
+			"Romance",
+			"School Life",
+			"Sci-fi",
+			"Seinen",
+			"Shoujo",
+			"Shounen",
+			"Slice of Life",
+			"Smut",
+			"Sports",
+			"Supernatural",
+			"Tragedy",
+			"Wuxia",
+			"Xianxia",
+			"Xuanhuan",
+			"Yaoi",
+			"Yuri"
+		],
+		"ids": [
+			"action",
+			"adult",
+			"adventure",
+			"comedy",
+			"drama",
+			"ecchi",
+			"fan-fiction",
+			"fantasy",
+			"gender-bender",
+			"harem",
+			"historical",
+			"horror",
+			"josei",
+			"martial-arts",
+			"mature",
+			"mecha",
+			"mystery",
+			"psychological",
+			"romance",
+			"school-life",
+			"sci-fi",
+			"seinen",
+			"shoujo",
+			"shounen",
+			"slice-of-life",
+			"smut",
+			"sports",
+			"supernatural",
+			"tragedy",
+			"wuxia",
+			"xianxia",
+			"xuanhuan",
+			"yaoi",
+			"yuri"
+		]
+	},
+	{
+		"type": "select",
+		"id": "genre_match",
+		"title": "Genre Match",
+		"options": [
+			"AND",
+			"OR"
+		],
+		"ids": [
+			"and",
+			"or"
+		],
+		"hideFromHeader": true
+	}
+]

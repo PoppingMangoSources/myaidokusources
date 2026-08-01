@@ -1,0 +1,22 @@
+{
+	"info": {
+		"id": "en.likemanga",
+		"name": "LikeManga",
+		"version": 1,
+		"url": "https://likemanga.ink",
+		"contentRating": 1,
+		"languages": ["en"]
+	},
+	"config": {
+		"supportsTagSearch": true
+	},
+	"listings": [
+		{ "id": "top-manga", "name": "Most Viewed" },
+		{ "id": "top-day", "name": "Popular Today" },
+		{ "id": "top-week", "name": "Popular This Week" },
+		{ "id": "top-month", "name": "Popular This Month" },
+		{ "id": "lastest-chap", "name": "Latest Updates" },
+		{ "id": "lastest-manga", "name": "Newest" },
+		{ "id": "follow", "name": "Most Followed" }
+	]
+}
