@@ -20,10 +20,19 @@
   <code>https://poppingmangosources.github.io/myaidokusources/index.min.json</code>
 </p>
 
-<p align="center">
-  <sub>Aidoku clones of my <a href="https://github.com/PoppingMangoSources/general-extensions-mangago">Paperback sources</a>, for the ones not already on Aidoku.<br/>
-  The Paperback repo is the main one — these are best effort and not maintained 24/7.</sub>
-</p>
+---
+
+## Please read first
+
+**This is a side project, not a maintained source list.**
+
+These are Aidoku clones of my [Paperback sources](https://github.com/PoppingMangoSources/general-extensions-mangago). I built them so I could read the sources that weren't already available on Aidoku. They're public in case they're useful to someone else too.
+
+- **The Paperback repository is the main one.** That's where the work happens, where sources get fixed first, and where the full catalog lives.
+- **These are not maintained 24/7.** When a site changes its layout or API, the Aidoku version may stay broken for a while — or indefinitely.
+- **Sources already on other Aidoku repos aren't duplicated here.** If something I have on Paperback already exists in another Aidoku source list, use that one — it'll be better maintained than mine.
+
+If you want the complete, actively maintained set, use the Paperback repository.
 
 ---
 
@@ -81,11 +90,17 @@
 
 <sub><a href="https://poppingmangosources.github.io/myaidokusources/sources/en.templescan-v1.aix"><b>Add to Aidoku</b></a> &nbsp;·&nbsp; <a href="https://poppingmangosources.github.io/myaidokusources/sources/en.templescan-v1.aix">.aix (v1)</a></sub>
 
+<h3><img src="media/sources/valirscans.png" width="24" align="top"/>&nbsp; ValirScans &nbsp;<sub><a href="https://valirscans.org">valirscans.org</a></sub></h3>
+
+<sub><a href="https://poppingmangosources.github.io/myaidokusources/sources/en.valirscans-v1.aix"><b>Add to Aidoku</b></a> &nbsp;·&nbsp; <a href="https://poppingmangosources.github.io/myaidokusources/sources/en.valirscans-v1.aix">.aix (v1)</a></sub>
+
 <h3><img src="media/sources/vymanga.png" width="24" align="top"/>&nbsp; VyManga &nbsp;<sub><a href="https://vymanga.com">vymanga.com</a></sub></h3>
 
 <sub><a href="https://poppingmangosources.github.io/myaidokusources/sources/en.vymanga-v1.aix"><b>Add to Aidoku</b></a> &nbsp;·&nbsp; <a href="https://poppingmangosources.github.io/myaidokusources/sources/en.vymanga-v1.aix">.aix (v1)</a></sub>
 
 ## Novels
+
+<sub>ValirScans appears in both lists — it carries comics and novels.</sub>
 
 <h3><img src="media/sources/mvlempyr.png" width="24" align="top"/>&nbsp; MVLEMPYR &nbsp;<sub><a href="https://www.mvlempyr.io">mvlempyr.io</a></sub></h3>
 
