@@ -21,7 +21,7 @@ use models::*;
 use network::{fetch_chapter_pages_via_api, make_request};
 use parsers::*;
 
-struct AllManga;
+struct Mkissa;
 
 fn source_content_rating() -> ContentRating {
 	if settings::show_adult() {
@@ -115,7 +115,7 @@ fn latest_data(page: i32) -> Result<SearchData> {
 	make_request(LATEST_QUERY, variables)
 }
 
-impl Source for AllManga {
+impl Source for Mkissa {
 	fn new() -> Self {
 		Self
 	}
@@ -286,7 +286,7 @@ impl Source for AllManga {
 	}
 }
 
-impl AllManga {
+impl Mkissa {
 	fn resolve_direct_query(&self, query: &str) -> Result<Option<MangaPageResult>> {
 		let id = if query.to_lowercase().starts_with("id:") {
 			let value = query[3..].trim();
@@ -322,7 +322,7 @@ impl AllManga {
 	}
 }
 
-impl Home for AllManga {
+impl Home for Mkissa {
 	fn get_home(&self) -> Result<HomeLayout> {
 		let mut components: Vec<HomeComponent> = Vec::new();
 
@@ -460,7 +460,7 @@ impl Home for AllManga {
 	}
 }
 
-impl ListingProvider for AllManga {
+impl ListingProvider for Mkissa {
 	fn get_manga_list(&self, listing: Listing, page: i32) -> Result<MangaPageResult> {
 		let page = page.max(1);
 		match listing.id.as_str() {
@@ -482,7 +482,7 @@ impl ListingProvider for AllManga {
 	}
 }
 
-impl aidoku::ImageRequestProvider for AllManga {
+impl aidoku::ImageRequestProvider for Mkissa {
 	fn get_image_request(&self, url: String, _context: Option<PageContext>) -> Result<Request> {
 		Ok(Request::get(url)?
 			.header("Referer", &format!("{DOMAIN}/"))
@@ -490,7 +490,7 @@ impl aidoku::ImageRequestProvider for AllManga {
 	}
 }
 
-impl DeepLinkHandler for AllManga {
+impl DeepLinkHandler for Mkissa {
 	fn handle_deep_link(&self, url: String) -> Result<Option<DeepLinkResult>> {
 		let Some(idx) = url.find("/manga/") else {
 			return Ok(None);
@@ -521,7 +521,7 @@ impl DeepLinkHandler for AllManga {
 }
 
 register_source!(
-	AllManga,
+	Mkissa,
 	Home,
 	ListingProvider,
 	ImageRequestProvider,

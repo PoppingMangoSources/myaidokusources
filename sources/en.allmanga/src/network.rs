@@ -32,7 +32,7 @@ pub fn make_request<T: DeserializeOwned>(query: &str, variables: serde_json::Val
 			.map(|e| e.message.as_str())
 			.collect::<Vec<_>>()
 			.join("\n");
-		bail!("AllManga returned an error: {message}");
+		bail!("Mkissa returned an error: {message}");
 	}
 
 	parsed.data.ok_or_else(|| error!("Missing response data"))
@@ -125,27 +125,22 @@ pub fn fetch_chapter_pages_via_api(
 	Ok(None)
 }
 
-/// Retrieves the signing bootstrap (epoch + key material) from a mirror host.
+/// Retrieves the signing bootstrap (epoch + key material) from Mkissa.
 fn get_signing_bootstrap() -> Result<Option<SigningBootstrap>> {
-	for host in MIRROR_HOSTS {
-		let url = format!("https://{host}/client-crypto/v1/bootstrap?buildId={BUILD_ID}");
-		let Ok(response) = Request::get(&url)?.send() else {
-			continue;
-		};
-		if response.status_code() != 200 {
-			continue;
-		}
-		let Ok(text) = response.get_string() else {
-			continue;
-		};
-		let Some(json) = extract_aa_crypto(&text) else {
-			continue;
-		};
-		if let Ok(bootstrap) = serde_json::from_str::<SigningBootstrap>(json) {
-			return Ok(Some(bootstrap));
-		}
+	let url = format!("{DOMAIN}/client-crypto/v1/bootstrap?buildId={BUILD_ID}");
+	let Ok(response) = Request::get(&url)?.send() else {
+		return Ok(None);
+	};
+	if response.status_code() != 200 {
+		return Ok(None);
 	}
-	Ok(None)
+	let Ok(text) = response.get_string() else {
+		return Ok(None);
+	};
+	let Some(json) = extract_aa_crypto(&text) else {
+		return Ok(None);
+	};
+	Ok(serde_json::from_str(json).ok())
 }
 
 /// Extracts the `window.__aaCrypto = { ... }` JSON object from a bootstrap page.

@@ -39,9 +39,9 @@ If you want the complete, actively maintained set, use the Paperback repository.
 
 ## Manga, Manhwa & Manhua
 
-<h3><img src="media/sources/allmanga.png" width="24" align="top"/>&nbsp; AllManga &nbsp;<sub><a href="https://mkissa.to">mkissa.to</a></sub></h3>
+<h3><img src="media/sources/mkissa.png" width="24" align="top"/>&nbsp; Mkissa &nbsp;<sub><a href="https://mkissa.to">mkissa.to</a></sub></h3>
 
-<sub><a href="https://poppingmangosources.github.io/myaidokusources/sources/en.allmanga-v6.aix"><b>Add to Aidoku</b></a> &nbsp;·&nbsp; <a href="https://poppingmangosources.github.io/myaidokusources/sources/en.allmanga-v6.aix">.aix (v6)</a></sub>
+<sub><a href="https://poppingmangosources.github.io/myaidokusources/sources/en.allmanga-v7.aix"><b>Add to Aidoku</b></a> &nbsp;·&nbsp; <a href="https://poppingmangosources.github.io/myaidokusources/sources/en.allmanga-v7.aix">.aix (v7)</a></sub>
 
 <h3><img src="media/sources/bunmanga.png" width="24" align="top"/>&nbsp; BunManga &nbsp;<sub><a href="https://bunmanga.com">bunmanga.com</a></sub></h3>
 

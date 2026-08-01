@@ -8,8 +8,8 @@ use aidoku::{
 	prelude::*,
 };
 
-const RESULT_TOKEN: &str = "__AIDOKU_ALLMANGA_PAGES__";
-const WAIT_TOKEN: &str = "__AIDOKU_ALLMANGA_WAIT__";
+const RESULT_TOKEN: &str = "__AIDOKU_MKISSA_PAGES__";
+const WAIT_TOKEN: &str = "__AIDOKU_MKISSA_WAIT__";
 
 /// Captures the decoded `chapterPages` response before the reader consumes it.
 fn capture_script() -> String {
@@ -74,27 +74,20 @@ fn capture_script() -> String {
 
 /// Loads a chapter in a background web view and returns its page urls.
 ///
-/// Every mirror serves the same reader, so they are tried in order until one
-/// renders its pages.
 pub fn page_urls_via_webview(manga_id: &str, chapter: &str) -> Result<Vec<String>> {
-	for host in MIRROR_HOSTS {
-		let urls = collect_from_mirror(host, manga_id, chapter).unwrap_or_default();
-		if urls.is_empty() {
-			continue;
-		}
-		let quality = crate::settings::image_quality();
-		return Ok(urls
-			.into_iter()
-			.map(|url| crate::parsers::apply_image_quality(&url, &quality))
-			.collect());
+	let urls = collect_pages(manga_id, chapter)?;
+	if urls.is_empty() {
+		bail!("The reader did not produce any pages");
 	}
-	bail!("The reader did not produce any pages")
+	let quality = crate::settings::image_quality();
+	Ok(urls
+		.into_iter()
+		.map(|url| crate::parsers::apply_image_quality(&url, &quality))
+		.collect())
 }
 
-/// Runs the collector against a single mirror, returning its page urls.
-fn collect_from_mirror(host: &str, manga_id: &str, chapter: &str) -> Result<Vec<String>> {
-	let origin = format!("https://{host}");
-	let reader_url = format!("{origin}/manga/{manga_id}/chapter-{chapter}-sub");
+fn collect_pages(manga_id: &str, chapter: &str) -> Result<Vec<String>> {
+	let reader_url = format!("{DOMAIN}/manga/{manga_id}/chapter-{chapter}-sub");
 	let web_view = WebView::new();
 	let mut user_script = WebViewUserScript::new(capture_script());
 	user_script.at_document_end = false;
@@ -104,7 +97,7 @@ fn collect_from_mirror(host: &str, manga_id: &str, chapter: &str) -> Result<Vec<
 	// wait used by `load_blocking`; the poll below supplies the hard deadline.
 	web_view.load(
 		Request::get(&reader_url)?
-			.header("Referer", &format!("{origin}/"))
+			.header("Referer", &format!("{DOMAIN}/"))
 			.header("Accept", "text/html,application/xhtml+xml,*/*;q=0.8"),
 	)?;
 
