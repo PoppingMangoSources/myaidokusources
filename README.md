@@ -10,12 +10,13 @@
 </p>
 
 <p align="center">
-  <a href="aidoku://addSourceList?url=https://poppingmangosources.github.io/myaidokusources/index.min.json">
+  <a href="https://poppingmangosources.github.io/myaidokusources/">
     <img src="media/add-button.svg" alt="Add PoppingMango to Aidoku" height="52"/>
   </a>
 </p>
 
 <p align="center">
+  The button opens the install page — tap <b>Add Repository</b> there on an iOS device.<br/>
   Or add it by hand in Aidoku under <b>Settings → Source Lists</b>:<br/>
   <code>https://poppingmangosources.github.io/myaidokusources/index.min.json</code>
 </p>
