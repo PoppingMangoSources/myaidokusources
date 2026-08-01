@@ -337,8 +337,8 @@ impl Source for ValirScans {
 				})
 				.collect();
 			chapters.sort_by(|a, b| {
-				a.chapter_number
-					.partial_cmp(&b.chapter_number)
+				b.chapter_number
+					.partial_cmp(&a.chapter_number)
 					.unwrap_or(core::cmp::Ordering::Equal)
 			});
 			manga.chapters = Some(chapters);

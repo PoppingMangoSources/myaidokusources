@@ -219,8 +219,8 @@ pub fn parse_chapters(data: &ChaptersData, manga_key: &str) -> Vec<Chapter> {
 		.collect();
 
 	chapters.sort_by(|a, b| {
-		a.chapter_number
-			.partial_cmp(&b.chapter_number)
+		b.chapter_number
+			.partial_cmp(&a.chapter_number)
 			.unwrap_or(core::cmp::Ordering::Equal)
 	});
 	chapters

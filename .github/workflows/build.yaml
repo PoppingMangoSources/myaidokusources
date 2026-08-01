@@ -79,7 +79,7 @@ jobs:
 
       - name: Build source list
         run: |
-          aidoku build sources/*/package.aix --name "Aidoku Community Sources"
+          aidoku build sources/*/package.aix --name "PoppingMango Sources"
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4.8.0
