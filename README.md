@@ -4,7 +4,7 @@
 
 <p align="center">
   <img src="media/badge-platform.svg" alt="iOS / iPadOS" height="28"/>
-  <img src="media/badge-aidoku.svg" alt="Aidoku 0.7+" height="28"/>
+  <img src="media/badge-aidoku.svg" alt="Aidoku 0.8+" height="28"/>
   <img src="media/badge-sources.svg" alt="18 sources" height="28"/>
   <img src="media/badge-unofficial.svg" alt="Best effort, not maintained 24/7" height="28"/>
 </p>
