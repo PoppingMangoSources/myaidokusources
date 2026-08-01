@@ -1,7 +1,7 @@
 use aidoku::alloc::{String, Vec};
 use serde::Deserialize;
 
-pub const DOMAIN: &str = "https://allmanga.to";
+pub const DOMAIN: &str = "https://mkissa.to";
 pub const MIRROR_HOSTS: &[&str] = &["mkissa.to", "allmanga.to"];
 pub const API_URL: &str = "https://api.allanime.day/api";
 

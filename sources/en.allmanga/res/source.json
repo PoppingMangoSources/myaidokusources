@@ -2,8 +2,9 @@
 	"info": {
 		"id": "en.allmanga",
 		"name": "AllManga",
-		"version": 2,
-		"url": "https://allmanga.to",
+		"version": 3,
+		"url": "https://mkissa.to",
+		"urls": ["https://mkissa.to", "https://allmanga.to"],
 		"contentRating": 1,
 		"languages": ["en"]
 	},

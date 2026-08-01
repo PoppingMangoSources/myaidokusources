@@ -72,14 +72,34 @@ fn collector_script() -> String {
 }
 
 /// Loads a chapter in a background web view and returns its page urls.
+///
+/// Every mirror serves the same reader, so they are tried in order until one
+/// renders its pages.
 pub fn page_urls_via_webview(manga_id: &str, chapter: &str) -> Result<Vec<String>> {
-	let reader_url = format!("{DOMAIN}/manga/{manga_id}/chapter-{chapter}-sub");
+	for host in MIRROR_HOSTS {
+		let urls = collect_from_mirror(host, manga_id, chapter).unwrap_or_default();
+		if urls.is_empty() {
+			continue;
+		}
+		let quality = crate::settings::image_quality();
+		return Ok(urls
+			.into_iter()
+			.map(|url| crate::parsers::apply_image_quality(&url, &quality))
+			.collect());
+	}
+	bail!("The reader did not produce any pages")
+}
+
+/// Runs the collector against a single mirror, returning its page urls.
+fn collect_from_mirror(host: &str, manga_id: &str, chapter: &str) -> Result<Vec<String>> {
+	let origin = format!("https://{host}");
+	let reader_url = format!("{origin}/manga/{manga_id}/chapter-{chapter}-sub");
 
 	// Load the real page so its scripts run against the site's own origin.
 	let web_view = WebView::new();
 	web_view.load_blocking(
 		Request::get(&reader_url)?
-			.header("Referer", &format!("{DOMAIN}/"))
+			.header("Referer", &format!("{origin}/"))
 			.header("Accept", "text/html,application/xhtml+xml,*/*;q=0.8"),
 	)?;
 
@@ -93,7 +113,7 @@ pub fn page_urls_via_webview(manga_id: &str, chapter: &str) -> Result<Vec<String
 			"(() => {{ return window['{RESULT_TOKEN}'].isAbort ? 'true' : 'false'; }})()"
 		))? == "true"
 		{
-			bail!("The reader did not produce any pages");
+			return Ok(Vec::new());
 		}
 	}
 
@@ -101,9 +121,5 @@ pub fn page_urls_via_webview(manga_id: &str, chapter: &str) -> Result<Vec<String
 		"(() => {{ return window['{RESULT_TOKEN}'].data || ''; }})()"
 	))?;
 
-	let urls: Vec<String> = serde_json::from_str(&result).unwrap_or_default();
-	Ok(urls
-		.into_iter()
-		.map(|url| crate::parsers::apply_image_quality(&url, &crate::settings::image_quality()))
-		.collect())
+	Ok(serde_json::from_str(&result).unwrap_or_default())
 }
