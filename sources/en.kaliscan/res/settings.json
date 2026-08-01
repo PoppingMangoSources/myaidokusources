@@ -1,0 +1,36 @@
+[
+	{
+		"type": "group",
+		"title": "Content",
+		"footer": "When off, NSFW titles are hidden from listings and search results.",
+		"items": [
+			{
+				"type": "switch",
+				"key": "showNSFW",
+				"title": "Show NSFW Content",
+				"subtitle": "Include NSFW titles.",
+				"default": false,
+				"refreshes": [
+					"content",
+					"listings"
+				]
+			}
+		]
+	},
+	{
+		"type": "group",
+		"footer": "Override the website address if KaliScan has moved. Leave empty to use the default (https://kaliscan.io).",
+		"items": [
+			{
+				"type": "text",
+				"key": "baseUrl",
+				"title": "Base URL",
+				"placeholder": "https://kaliscan.io",
+				"refreshes": [
+					"content",
+					"listings"
+				]
+			}
+		]
+	}
+]

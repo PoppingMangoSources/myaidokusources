@@ -1,0 +1,165 @@
+[
+	{
+		"type": "group",
+		"title": "Content",
+		"footer": "SFW shows only titles rated safe. All Content allows every rating. Hidden genres are always removed from the home page, listings, and search results.",
+		"items": [
+			{
+				"type": "select",
+				"key": "contentPreference",
+				"title": "Content Rating",
+				"values": [
+					"safe",
+					"all"
+				],
+				"titles": [
+					"SFW",
+					"All Content"
+				],
+				"default": "safe",
+				"refreshes": [
+					"content",
+					"listings"
+				]
+			},
+			{
+				"type": "multi-select",
+				"key": "hiddenGenres",
+				"title": "Hide Genres",
+				"subtitle": "Exclude selected genres from discover and search",
+				"values": [
+					"10",
+					"33",
+					"16",
+					"46",
+					"45",
+					"27",
+					"4",
+					"42",
+					"5",
+					"37",
+					"34",
+					"1",
+					"24",
+					"41",
+					"32",
+					"26",
+					"40",
+					"12",
+					"20",
+					"9",
+					"44",
+					"43",
+					"48",
+					"18",
+					"21",
+					"39",
+					"36",
+					"19",
+					"22",
+					"49",
+					"2",
+					"7",
+					"17",
+					"11",
+					"38",
+					"3",
+					"30",
+					"13",
+					"28",
+					"6",
+					"35",
+					"14",
+					"15",
+					"47",
+					"23",
+					"8",
+					"25",
+					"29",
+					"31"
+				],
+				"titles": [
+					"Action",
+					"Adult",
+					"Adventure",
+					"Avant Garde",
+					"Award Winning",
+					"Boys Love",
+					"Comedy",
+					"Doujinshi",
+					"Drama",
+					"Ecchi",
+					"Erotica",
+					"Fantasy",
+					"Gender Bender",
+					"Girls Love",
+					"Gourmet",
+					"Harem",
+					"Hentai",
+					"Historical",
+					"Horror",
+					"Josei",
+					"Lolicon",
+					"Mahou Shoujo",
+					"Male Protagonist",
+					"Martial Arts",
+					"Mature",
+					"Mecha",
+					"Music",
+					"Mystery",
+					"Psychological",
+					"Regression",
+					"Romance",
+					"School Life",
+					"Sci-fi",
+					"Seinen",
+					"Shotacon",
+					"Shoujo",
+					"Shoujo Ai",
+					"Shounen",
+					"Shounen Ai",
+					"Slice Of Life",
+					"Smut",
+					"Sports",
+					"Supernatural",
+					"Survival",
+					"Suspense",
+					"Thriller",
+					"Tragedy",
+					"Yaoi",
+					"Yuri"
+				],
+				"refreshes": [
+					"content",
+					"listings"
+				]
+			}
+		]
+	},
+	{
+		"type": "group",
+		"footer": "Override these only if Scans.GG has moved or the default API stops responding. Leave empty to use the defaults (https://scans.gg and https://api.scans.gg).",
+		"items": [
+			{
+				"type": "text",
+				"key": "baseUrl",
+				"title": "Website URL",
+				"placeholder": "https://scans.gg",
+				"refreshes": [
+					"content",
+					"listings"
+				]
+			},
+			{
+				"type": "text",
+				"key": "apiUrl",
+				"title": "API URL",
+				"placeholder": "https://api.scans.gg",
+				"refreshes": [
+					"content",
+					"listings"
+				]
+			}
+		]
+	}
+]

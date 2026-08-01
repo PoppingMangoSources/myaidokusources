@@ -5,6 +5,7 @@ use aidoku::{
 	MangaPageResult, MangaStatus, MangaWithChapter, Page, PageContent, Result, Source, Viewer,
 	alloc::{String, Vec, string::ToString, vec},
 	helpers::uri::QueryParameters,
+	imports::defaults::defaults_get,
 	imports::net::Request,
 	imports::std::{parse_date, send_partial_result},
 	prelude::*,
@@ -14,6 +15,11 @@ use serde::{Deserialize, de::DeserializeOwned};
 const DOMAIN: &str = "https://novelarchive.cc";
 const API_URL: &str = "https://novelarchive.cc/api";
 const PAGE_SIZE: i32 = 24;
+const HIDE_ADULT_KEY: &str = "hideAdult";
+
+fn hide_adult() -> bool {
+	defaults_get::<bool>(HIDE_ADULT_KEY).unwrap_or(false)
+}
 
 const ADULT_GENRES: &[&str] = &["adult", "smut", "erotica", "hentai", "explicit", "nsfw"];
 const MATURE_GENRES: &[&str] = &["mature", "ecchi"];
@@ -279,12 +285,18 @@ fn build_list_url(
 
 fn fetch_list(url: &str) -> Result<MangaPageResult> {
 	let data: NovelListResponse = api_get(url)?;
+	let hide = hide_adult();
 	let has_next_page = data
 		.pagination
 		.map(|p| p.has_next)
 		.unwrap_or(data.novels.len() as i32 == PAGE_SIZE);
 	Ok(MangaPageResult {
-		entries: data.novels.into_iter().map(novel_to_manga).collect(),
+		entries: data
+			.novels
+			.into_iter()
+			.map(novel_to_manga)
+			.filter(|manga| !hide || manga.content_rating != ContentRating::NSFW)
+			.collect(),
 		has_next_page,
 	})
 }

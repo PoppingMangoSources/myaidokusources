@@ -1,0 +1,19 @@
+[
+	{
+		"type": "group",
+		"title": "Content",
+		"footer": "When on, adult titles are removed from the home page, listings, and search results.",
+		"items": [
+			{
+				"type": "switch",
+				"key": "hideAdult",
+				"title": "Hide adult content",
+				"default": false,
+				"refreshes": [
+					"content",
+					"listings"
+				]
+			}
+		]
+	}
+]

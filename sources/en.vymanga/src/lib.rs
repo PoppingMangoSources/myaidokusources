@@ -5,13 +5,22 @@ use aidoku::{
 	MangaPageResult, MangaStatus, Page, PageContent, PageContext, Result, Source,
 	alloc::{String, Vec, string::ToString},
 	helpers::uri::QueryParameters,
+	imports::defaults::defaults_get,
 	imports::html::{Document, Element},
 	imports::net::Request,
 	imports::std::{parse_date, send_partial_result},
 	prelude::*,
 };
 
-const BASE_URL: &str = "https://vymanga.com";
+const DEFAULT_BASE_URL: &str = "https://vymanga.com";
+const BASE_URL_KEY: &str = "baseUrl";
+
+fn base_url() -> String {
+	defaults_get::<String>(BASE_URL_KEY)
+		.map(|url| url.trim().trim_end_matches('/').to_string())
+		.filter(|url| url.starts_with("http"))
+		.unwrap_or_else(|| DEFAULT_BASE_URL.into())
+}
 
 const ADULT_GENRES: &[&str] = &["adult", "hentai", "smut"];
 
@@ -24,9 +33,9 @@ fn abs_url(value: &str) -> String {
 	} else if value.starts_with("http") {
 		value.to_string()
 	} else if value.starts_with('/') {
-		format!("{BASE_URL}{value}")
+		format!("{}{value}", base_url())
 	} else {
-		format!("{BASE_URL}/{value}")
+		format!("{}/{value}", base_url())
 	}
 }
 
@@ -148,7 +157,7 @@ fn browse_url(sort: &str, page: i32) -> String {
 	qs.push("sort", Some(sort));
 	qs.push("sort_type", Some("desc"));
 	qs.push("page", Some(&page.to_string()));
-	format!("{BASE_URL}/search?{qs}")
+	format!("{}/search?{qs}", base_url())
 }
 
 struct VyManga;
@@ -196,7 +205,7 @@ impl Source for VyManga {
 			qs.push("sort", Some(sort));
 			qs.push("sort_type", Some("desc"));
 		}
-		fetch_cards(&format!("{BASE_URL}/search?{qs}"))
+		fetch_cards(&format!("{}/search?{qs}", base_url()))
 	}
 
 	fn get_manga_update(
@@ -205,7 +214,7 @@ impl Source for VyManga {
 		needs_details: bool,
 		needs_chapters: bool,
 	) -> Result<Manga> {
-		let url = format!("{BASE_URL}/manga/{}", manga.key);
+		let url = format!("{}/manga/{}", base_url(), manga.key);
 		let doc = Request::get(&url)?.html()?;
 
 		if needs_details {
@@ -438,7 +447,7 @@ impl ListingProvider for VyManga {
 
 impl aidoku::ImageRequestProvider for VyManga {
 	fn get_image_request(&self, url: String, _context: Option<PageContext>) -> Result<Request> {
-		Ok(Request::get(url)?.header("Referer", &format!("{BASE_URL}/")))
+		Ok(Request::get(url)?.header("Referer", &format!("{}/", base_url())))
 	}
 }
 

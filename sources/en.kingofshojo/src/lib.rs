@@ -1,8 +1,21 @@
 #![no_std]
-use aidoku::{Source, prelude::*};
+use aidoku::{
+	Source,
+	alloc::{String, string::ToString},
+	imports::defaults::defaults_get,
+	prelude::*,
+};
 use mangathemesia::{Impl, MangaThemesia, Params};
 
-const BASE_URL: &str = "https://kingofshojo.com";
+const DEFAULT_BASE_URL: &str = "https://kingofshojo.com";
+const BASE_URL_KEY: &str = "baseUrl";
+
+fn base_url() -> String {
+	defaults_get::<String>(BASE_URL_KEY)
+		.map(|url| url.trim().trim_end_matches('/').to_string())
+		.filter(|url| url.starts_with("http"))
+		.unwrap_or_else(|| DEFAULT_BASE_URL.into())
+}
 
 struct Kingofshojo;
 
@@ -13,7 +26,7 @@ impl Impl for Kingofshojo {
 
 	fn params(&self) -> Params {
 		Params {
-			base_url: BASE_URL.into(),
+			base_url: base_url().into(),
 			..Default::default()
 		}
 	}

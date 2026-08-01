@@ -1,0 +1,18 @@
+[
+	{
+		"type": "group",
+		"footer": "Override the website address if VyManga has moved. Leave empty to use the default (https://vymanga.com).",
+		"items": [
+			{
+				"type": "text",
+				"key": "baseUrl",
+				"title": "Base URL",
+				"placeholder": "https://vymanga.com",
+				"refreshes": [
+					"content",
+					"listings"
+				]
+			}
+		]
+	}
+]

@@ -1,0 +1,18 @@
+[
+	{
+		"type": "group",
+		"footer": "Override the website address if RokariComics has moved. Leave empty to use the default (https://rokaricomics.com).",
+		"items": [
+			{
+				"type": "text",
+				"key": "baseUrl",
+				"title": "Base URL",
+				"placeholder": "https://rokaricomics.com",
+				"refreshes": [
+					"content",
+					"listings"
+				]
+			}
+		]
+	}
+]

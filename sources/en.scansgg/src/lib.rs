@@ -1,10 +1,11 @@
 #![no_std]
 use aidoku::{
-	Chapter, DeepLinkHandler, DeepLinkResult, FilterItem, FilterValue, Home, HomeComponent,
-	HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider, Manga,
-	MangaPageResult, MangaWithChapter, Page, PageContent, PageContext, Result, Source,
+	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterItem, FilterValue, Home,
+	HomeComponent, HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider,
+	Manga, MangaPageResult, MangaWithChapter, Page, PageContent, PageContext, Result, Source,
 	alloc::{String, Vec, string::ToString, vec},
 	helpers::uri::QueryParameters,
+	imports::defaults::defaults_get,
 	imports::net::Request,
 	imports::std::{parse_date, send_partial_result},
 	prelude::*,
@@ -15,12 +16,57 @@ mod models;
 
 use models::*;
 
+const BASE_URL_KEY: &str = "baseUrl";
+const API_URL_KEY: &str = "apiUrl";
+const CONTENT_PREFERENCE_KEY: &str = "contentPreference";
+const HIDDEN_GENRES_KEY: &str = "hiddenGenres";
+
+fn override_url(key: &str, fallback: &str) -> String {
+	defaults_get::<String>(key)
+		.map(|url| url.trim().trim_end_matches('/').to_string())
+		.filter(|url| url.starts_with("http"))
+		.unwrap_or_else(|| fallback.into())
+}
+
+fn site_url() -> String {
+	override_url(BASE_URL_KEY, DOMAIN)
+}
+
+fn api_url() -> String {
+	override_url(API_URL_KEY, API_URL)
+}
+
+fn safe_only() -> bool {
+	defaults_get::<String>(CONTENT_PREFERENCE_KEY).as_deref() != Some("all")
+}
+
+fn hidden_genres() -> Vec<i64> {
+	defaults_get::<Vec<String>>(HIDDEN_GENRES_KEY)
+		.unwrap_or_default()
+		.into_iter()
+		.filter_map(|id| id.parse().ok())
+		.collect()
+}
+
+/// Applies the reader's content preference and hidden-genre list.
+fn is_visible(series: &SeriesDto) -> bool {
+	let tags = series.tags.as_deref().unwrap_or(&[]);
+	let hidden = hidden_genres();
+	if tags.iter().any(|id| hidden.contains(id)) {
+		return false;
+	}
+	if safe_only() && derive_content_rating(series.content_rating, tags) != ContentRating::Safe {
+		return false;
+	}
+	true
+}
+
 const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36";
 
 fn get<T: DeserializeOwned>(url: &str) -> Result<T> {
 	Request::get(url)?
-		.header("Referer", &format!("{DOMAIN}/"))
-		.header("Origin", DOMAIN)
+		.header("Referer", &format!("{}/", site_url()))
+		.header("Origin", &site_url())
 		.header("User-Agent", USER_AGENT)
 		.header("Accept", "application/json, text/plain, */*")
 		.send()?
@@ -187,11 +233,11 @@ fn series_to_manga_chapter(mut series: SeriesDto) -> Option<MangaWithChapter> {
 }
 
 fn fetch_series_list(query: &str) -> Result<(Vec<SeriesDto>, bool)> {
-	let response: ResponseDto<Vec<SeriesDto>> = get(&format!("{API_URL}/series?{query}"))?;
+	let response: ResponseDto<Vec<SeriesDto>> = get(&format!("{}/series?{query}", api_url()))?;
 	let data = response.data.unwrap_or_default();
 	let has_more =
 		response.meta.map(|m| m.has_more).unwrap_or(false) || data.len() as i32 == SERIES_PAGE_SIZE;
-	Ok((data, has_more))
+	Ok((data.into_iter().filter(is_visible).collect(), has_more))
 }
 
 struct ScansGG;
@@ -283,7 +329,7 @@ impl Source for ScansGG {
 			qs.push("id", Some(&series_id));
 			qs.push("trackers", Some("true"));
 			qs.push("sources", Some("true"));
-			let response: ResponseDto<SeriesDto> = get(&format!("{API_URL}/series?{qs}"))?;
+			let response: ResponseDto<SeriesDto> = get(&format!("{}/series?{qs}", api_url()))?;
 			let series = response.data.ok_or_else(|| error!("No series data"))?;
 
 			let tags_ids = series.tags.clone().unwrap_or_default();
@@ -298,7 +344,7 @@ impl Source for ScansGG {
 			manga.status = map_status(series.status);
 			manga.viewer = viewer_for_type(series.kind);
 			manga.content_rating = derive_content_rating(series.content_rating, &tags_ids);
-			manga.url = Some(format!("{DOMAIN}/series/{series_id}"));
+			manga.url = Some(format!("{}/series/{series_id}", site_url()));
 
 			let authors: Vec<String> = series
 				.author
@@ -366,7 +412,7 @@ impl Source for ScansGG {
 		}
 
 		let response: ResponseDto<PageListDto> =
-			get(&format!("{API_URL}/chapter-navigation?{qs}"))?;
+			get(&format!("{}/chapter-navigation?{qs}", api_url()))?;
 		let chapter_data = response
 			.data
 			.and_then(|d| d.chapter)
@@ -400,7 +446,7 @@ fn fetch_chapters(series_id: &str) -> Result<Vec<Chapter>> {
 		qs.push("limit", Some(&CHAPTER_PAGE_SIZE.to_string()));
 		qs.push("page", Some(&page.to_string()));
 		qs.push("group_details", Some("true"));
-		let response: ResponseDto<Vec<ChapterDto>> = get(&format!("{API_URL}/chapters?{qs}"))?;
+		let response: ResponseDto<Vec<ChapterDto>> = get(&format!("{}/chapters?{qs}", api_url()))?;
 		let batch = response.data.unwrap_or_default();
 		let has_more = response.meta.map(|m| m.has_more).unwrap_or(false) && !batch.is_empty();
 		all.extend(batch);
@@ -419,7 +465,7 @@ fn fetch_chapters(series_id: &str) -> Result<Vec<Chapter>> {
 				.or(group_from_title);
 			let key = format!("{series_id}:{}:{}", ch.id, ch.group_id.unwrap_or(0));
 			Chapter {
-				url: Some(format!("{DOMAIN}/series/{series_id}/{}", ch.id)),
+				url: Some(format!("{}/series/{series_id}/{}", site_url(), ch.id)),
 				key,
 				title,
 				chapter_number: Some(chapter_number),
@@ -571,12 +617,13 @@ impl Home for ScansGG {
 		qs.push("group_details", Some("true"));
 		qs.push("sort", Some("date"));
 		if let Ok(response) =
-			get::<ResponseDto<Vec<SeriesDto>>>(&format!("{API_URL}/chapters?{qs}"))
+			get::<ResponseDto<Vec<SeriesDto>>>(&format!("{}/chapters?{qs}", api_url()))
 		{
 			let entries: Vec<MangaWithChapter> = response
 				.data
 				.unwrap_or_default()
 				.into_iter()
+				.filter(is_visible)
 				.filter_map(series_to_manga_chapter)
 				.collect();
 			if !entries.is_empty() {
@@ -687,12 +734,16 @@ impl ListingProvider for ScansGG {
 				qs.push("group_details", Some("true"));
 				qs.push("sort", Some("date"));
 				let response: ResponseDto<Vec<SeriesDto>> =
-					get(&format!("{API_URL}/chapters?{qs}"))?;
+					get(&format!("{}/chapters?{qs}", api_url()))?;
 				let data = response.data.unwrap_or_default();
 				let has_next_page = response.meta.map(|m| m.has_more).unwrap_or(false)
 					|| data.len() as i32 == LATEST_PAGE_SIZE;
 				Ok(MangaPageResult {
-					entries: data.into_iter().map(series_to_manga).collect(),
+					entries: data
+						.into_iter()
+						.filter(is_visible)
+						.map(series_to_manga)
+						.collect(),
 					has_next_page,
 				})
 			}
@@ -704,7 +755,7 @@ impl ListingProvider for ScansGG {
 impl aidoku::ImageRequestProvider for ScansGG {
 	fn get_image_request(&self, url: String, _context: Option<PageContext>) -> Result<Request> {
 		Ok(Request::get(url)?
-			.header("Referer", &format!("{DOMAIN}/"))
+			.header("Referer", &format!("{}/", site_url()))
 			.header("User-Agent", USER_AGENT))
 	}
 }
