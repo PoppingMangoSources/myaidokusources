@@ -1,0 +1,16 @@
+{
+	"info": {
+		"id": "en.novelarchive",
+		"name": "NovelArchive",
+		"version": 1,
+		"url": "https://novelarchive.cc",
+		"contentRating": 1,
+		"languages": ["en"]
+	},
+	"listings": [
+		{ "id": "popular", "name": "Popular" },
+		{ "id": "recent", "name": "Recently Updated" },
+		{ "id": "rating", "name": "Top Rated" },
+		{ "id": "chapters", "name": "Most Chapters" }
+	]
+}

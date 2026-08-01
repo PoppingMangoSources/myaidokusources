@@ -1,0 +1,9 @@
+[
+	{
+		"type": "select",
+		"id": "type",
+		"title": "Content Type",
+		"options": ["All", "Manga", "Novel"],
+		"ids": ["all", "manga", "novel"]
+	}
+]

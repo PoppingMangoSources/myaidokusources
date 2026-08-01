@@ -1,0 +1,15 @@
+{
+	"info": {
+		"id": "en.novelcool",
+		"name": "NovelCool",
+		"version": 1,
+		"url": "https://www.novelcool.com",
+		"contentRating": 1,
+		"languages": ["en"]
+	},
+	"listings": [
+		{ "id": "hot", "name": "Popular" },
+		{ "id": "latest", "name": "Latest Updates" },
+		{ "id": "new_book", "name": "Newest" }
+	]
+}
