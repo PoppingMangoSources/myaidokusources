@@ -326,8 +326,7 @@ impl Home for AllManga {
 	fn get_home(&self) -> Result<HomeLayout> {
 		let mut components: Vec<HomeComponent> = Vec::new();
 
-		// Banner of what's hot right now.
-		if let Ok((recommendations, _)) = popular_cards(1, 1) {
+		if let Ok((recommendations, _)) = popular_cards(0, 1) {
 			let entries: Vec<Manga> = recommendations
 				.into_iter()
 				.filter_map(|rec| rec.any_card)
@@ -335,7 +334,7 @@ impl Home for AllManga {
 				.collect();
 			if !entries.is_empty() {
 				components.push(HomeComponent {
-					title: Some("Popular Today".into()),
+					title: Some("Popular".into()),
 					subtitle: None,
 					value: HomeComponentValue::BigScroller {
 						entries,
@@ -369,31 +368,6 @@ impl Home for AllManga {
 						},
 					});
 				}
-			}
-		}
-
-		// Ranked all-time chart.
-		if let Ok((recommendations, _)) = popular_cards(0, 1) {
-			let entries: Vec<Link> = recommendations
-				.into_iter()
-				.filter_map(|rec| rec.any_card)
-				.map(card_to_link)
-				.collect();
-			if !entries.is_empty() {
-				components.push(HomeComponent {
-					title: Some("Popular All Time".into()),
-					subtitle: None,
-					value: HomeComponentValue::MangaList {
-						ranking: true,
-						page_size: Some(10),
-						entries,
-						listing: Some(Listing {
-							id: "popular_all_time".into(),
-							name: "Popular All Time".into(),
-							..Default::default()
-						}),
-					},
-				});
 			}
 		}
 

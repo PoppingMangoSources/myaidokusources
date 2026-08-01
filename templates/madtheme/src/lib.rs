@@ -1,7 +1,7 @@
 #![no_std]
 use aidoku::{
-	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterValue, ImageRequestProvider,
-	Manga, MangaPageResult, Page, PageContext, Result, Source, Viewer,
+	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterValue, Home, HomeLayout,
+	ImageRequestProvider, Manga, MangaPageResult, Page, PageContext, Result, Source, Viewer,
 	alloc::{String, Vec, borrow::Cow},
 	imports::net::Request,
 };
@@ -71,6 +71,12 @@ impl<T: Impl> Source for MadTheme<T> {
 impl<T: Impl> ImageRequestProvider for MadTheme<T> {
 	fn get_image_request(&self, url: String, context: Option<PageContext>) -> Result<Request> {
 		self.inner.get_image_request(&self.params, url, context)
+	}
+}
+
+impl<T: Impl> Home for MadTheme<T> {
+	fn get_home(&self) -> Result<HomeLayout> {
+		self.inner.get_home(&self.params)
 	}
 }
 

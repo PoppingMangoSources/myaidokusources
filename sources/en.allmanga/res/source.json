@@ -2,7 +2,7 @@
 	"info": {
 		"id": "en.allmanga",
 		"name": "AllManga",
-		"version": 3,
+		"version": 4,
 		"url": "https://mkissa.to",
 		"urls": ["https://mkissa.to", "https://allmanga.to"],
 		"contentRating": 1,

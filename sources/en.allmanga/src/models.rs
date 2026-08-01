@@ -3,7 +3,7 @@ use serde::Deserialize;
 
 pub const DOMAIN: &str = "https://mkissa.to";
 pub const MIRROR_HOSTS: &[&str] = &["mkissa.to", "allmanga.to"];
-pub const API_URL: &str = "https://api.allanime.day/api";
+pub const API_URL: &str = "https://api.mkissa.net/api";
 
 pub const THUMBNAIL_CDN: &str = "https://wp.youtube-anime.com/aln.youtube-anime.com/";
 pub const IMAGE_CDN: &str = "https://wp.youtube-anime.com";

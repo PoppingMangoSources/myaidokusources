@@ -2,71 +2,51 @@ use crate::models::*;
 use aidoku::{
 	Result,
 	alloc::{String, Vec},
-	imports::js::WebView,
+	imports::js::{WebView, WebViewUserScript},
 	imports::net::Request,
+	imports::std::sleep,
 	prelude::*,
 };
 
 const RESULT_TOKEN: &str = "__AIDOKU_ALLMANGA_PAGES__";
+const WAIT_TOKEN: &str = "__AIDOKU_ALLMANGA_WAIT__";
 
-/// Watches the reader for its page images.
-///
-/// The reader fetches and renders its pages itself, so rather than racing its
-/// scripts the collector polls the document and only reports once the image
-/// count has held steady, which means lazy loading has caught up.
-fn collector_script() -> String {
+/// Captures the decoded `chapterPages` response before the reader consumes it.
+fn capture_script() -> String {
 	format!(
 		"(() => {{
-	window['{RESULT_TOKEN}'] = {{ data: null, isDone: false, isAbort: false }};
+	if (window['{RESULT_TOKEN}']) return;
+	window['{RESULT_TOKEN}'] = {{ data: '', done: false }};
 	const state = window['{RESULT_TOKEN}'];
-	let last = -1;
-	let stable = 0;
-
-	const collect = () => {{
-		const seen = {{}};
-		const out = [];
-		const images = document.querySelectorAll('img');
-		for (let i = 0; i < images.length; i++) {{
-			const src = images[i].currentSrc || images[i].getAttribute('src') || '';
-			if (!src || src.indexOf('data:') === 0) continue;
-			if (src.indexOf('youtube-anime.com') === -1) continue;
-			if (src.indexOf('aln.youtube-anime.com') !== -1) continue;
-			if (seen[src]) continue;
-			seen[src] = 1;
-			out.push(src);
-		}}
-		return out;
+	let settled = false;
+	const finish = (value) => {{
+		if (settled) return;
+		settled = true;
+		state.data = value || '';
+		state.done = true;
 	}};
-
-	const finish = (urls) => {{
-		state.data = JSON.stringify(urls);
-		state.isDone = true;
+	const capture = (parsed, raw) => {{
+		try {{
+			const pages = parsed && (parsed.chapterPages || (parsed.data && parsed.data.chapterPages));
+			if (pages && pages.edges && pages.edges.length) finish(raw);
+		}} catch (_) {{}}
 	}};
-
-	const tick = setInterval(() => {{
-		// Nudge the reader so lazily mounted pages render.
-		window.scrollTo(0, document.body.scrollHeight);
-		const urls = collect();
-		stable = urls.length > 0 && urls.length === last ? stable + 1 : 0;
-		last = urls.length;
-		if (urls.length > 0 && stable >= 3) {{
-			clearInterval(tick);
-			finish(urls);
+	const originalParse = JSON.parse;
+	JSON.parse = new Proxy(originalParse, {{
+		apply(target, thisArg, args) {{
+			const parsed = Reflect.apply(target, thisArg, args);
+			capture(parsed, typeof args[0] === 'string' ? args[0] : JSON.stringify(parsed));
+			return parsed;
 		}}
-	}}, 250);
-
-	setTimeout(() => {{
-		clearInterval(tick);
-		if (state.isDone) return;
-		const urls = collect();
-		if (urls.length > 0) {{
-			finish(urls);
-		}} else {{
-			state.isAbort = true;
-		}}
-	}}, 20000);
-
-	return '';
+	}});
+	const originalJson = Response.prototype.json;
+	Response.prototype.json = function () {{
+		return originalJson.call(this).then((parsed) => {{
+			capture(parsed, JSON.stringify(parsed));
+			return parsed;
+		}});
+	}};
+	setTimeout(() => finish(''), 25000);
 }})()"
 	)
 }
@@ -95,31 +75,52 @@ fn collect_from_mirror(host: &str, manga_id: &str, chapter: &str) -> Result<Vec<
 	let origin = format!("https://{host}");
 	let reader_url = format!("{origin}/manga/{manga_id}/chapter-{chapter}-sub");
 
-	// Load the real page so its scripts run against the site's own origin.
 	let web_view = WebView::new();
+	let mut user_script = WebViewUserScript::new(capture_script());
+	user_script.at_document_end = false;
+	user_script.for_main_frame_only = true;
+	web_view.add_user_script(user_script)?;
 	web_view.load_blocking(
 		Request::get(&reader_url)?
 			.header("Referer", &format!("{origin}/"))
 			.header("Accept", "text/html,application/xhtml+xml,*/*;q=0.8"),
 	)?;
 
-	web_view.eval(&collector_script())?;
-
-	while web_view.eval(&format!(
-		"(() => {{ return window['{RESULT_TOKEN}'].isDone ? 'true' : 'false'; }})()"
-	))? == "false"
-	{
-		if web_view.eval(&format!(
-			"(() => {{ return window['{RESULT_TOKEN}'].isAbort ? 'true' : 'false'; }})()"
-		))? == "true"
-		{
-			return Ok(Vec::new());
+	let mut result = String::new();
+	for _ in 0..30 {
+		result = web_view.eval(&format!(
+			"window['{RESULT_TOKEN}'].done ? window['{RESULT_TOKEN}'].data : '{WAIT_TOKEN}'"
+		))?;
+		if result != WAIT_TOKEN {
+			break;
 		}
+		sleep(1);
 	}
+	if result == WAIT_TOKEN || result.is_empty() {
+		return Ok(Vec::new());
+	}
+	let parsed: ApiPagesResponse = match serde_json::from_str(&result) {
+		Ok(parsed) => parsed,
+		Err(_) => return Ok(Vec::new()),
+	};
+	let Some(pages) = parsed
+		.chapter_pages
+		.or_else(|| parsed.data.and_then(|data| data.chapter_pages))
+	else {
+		return Ok(Vec::new());
+	};
+	Ok(crate::parsers::parse_page_urls(&pages, "original"))
+}
 
-	let result = web_view.eval(&format!(
-		"(() => {{ return window['{RESULT_TOKEN}'].data || ''; }})()"
-	))?;
+#[derive(serde::Deserialize)]
+struct ApiPagesData {
+	#[serde(rename = "chapterPages")]
+	chapter_pages: Option<ChapterPages>,
+}
 
-	Ok(serde_json::from_str(&result).unwrap_or_default())
+#[derive(serde::Deserialize)]
+struct ApiPagesResponse {
+	#[serde(rename = "chapterPages")]
+	chapter_pages: Option<ChapterPages>,
+	data: Option<ApiPagesData>,
 }

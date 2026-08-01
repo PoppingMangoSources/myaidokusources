@@ -406,11 +406,54 @@ impl Home for NovelCool {
 	fn get_home(&self) -> Result<HomeLayout> {
 		let mut components: Vec<HomeComponent> = Vec::new();
 
+		let mut featured_books = Vec::new();
+		if let Ok(books) = browse("hot", "novel", 1) {
+			featured_books.extend(books);
+		}
 		if let Ok(books) = browse("hot", "manga", 1) {
-			let entries: Vec<Manga> = books.into_iter().take(10).map(book_to_manga).collect();
+			featured_books.extend(books);
+		}
+		let mut entries = Vec::new();
+		if let Ok(html) =
+			Request::get(DOMAIN).and_then(|request| request.header("User-Agent", USER_AGENT).html())
+			&& let Some(items) = html.select(".index-carousel .carousel-item")
+		{
+			for item in items {
+				let title = item
+					.select_first(".book-name")
+					.and_then(|el| el.text())
+					.or_else(|| {
+						item.select_first(".book-pic")
+							.and_then(|el| el.attr("title"))
+					})
+					.unwrap_or_default();
+				let Some(index) = featured_books
+					.iter()
+					.position(|book| book.name.trim().eq_ignore_ascii_case(title.trim()))
+				else {
+					continue;
+				};
+				let mut manga = book_to_manga(featured_books.swap_remove(index));
+				if let Some(image) = item
+					.attr("bg_url")
+					.or_else(|| item.select_first("img").and_then(|img| img.attr("abs:src")))
+				{
+					manga.cover = Some(resolve_url(&image));
+				}
+				entries.push(manga);
+			}
+		}
+		if entries.is_empty() {
+			entries = featured_books
+				.into_iter()
+				.take(10)
+				.map(book_to_manga)
+				.collect();
+		}
+		{
 			if !entries.is_empty() {
 				components.push(HomeComponent {
-					title: Some("Popular".into()),
+					title: Some("Featured".into()),
 					subtitle: None,
 					value: HomeComponentValue::BigScroller {
 						entries,

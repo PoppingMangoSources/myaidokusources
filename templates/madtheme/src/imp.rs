@@ -1,7 +1,7 @@
 use crate::{Params, helpers};
 use aidoku::{
-	Chapter, ContentRating, DeepLinkResult, FilterValue, Manga, MangaPageResult, MangaStatus, Page,
-	PageContent, PageContext, Result,
+	Chapter, ContentRating, DeepLinkResult, FilterValue, HomeLayout, Manga, MangaPageResult,
+	MangaStatus, Page, PageContent, PageContext, Result,
 	alloc::{String, Vec, string::ToString, vec},
 	helpers::{element::ElementHelpers, string::StripPrefixOrSelf, uri::QueryParameters},
 	imports::{
@@ -16,6 +16,8 @@ pub trait Impl {
 	fn new() -> Self;
 
 	fn params(&self) -> Params;
+
+	fn get_home(&self, params: &Params) -> Result<HomeLayout>;
 
 	fn get_search_manga_list(
 		&self,

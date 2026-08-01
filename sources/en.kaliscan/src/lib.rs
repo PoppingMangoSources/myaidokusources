@@ -1,7 +1,8 @@
 #![no_std]
 use aidoku::{
-	ContentRating, FilterValue, Manga, MangaPageResult, Result, Source,
-	alloc::{String, Vec, string::ToString},
+	Chapter, ContentRating, FilterItem, FilterValue, HomeComponent, HomeComponentValue, HomeLayout,
+	Manga, MangaPageResult, MangaWithChapter, Result, Source,
+	alloc::{String, Vec, string::ToString, vec},
 	helpers::{string::StripPrefixOrSelf, uri::QueryParameters},
 	imports::defaults::defaults_get,
 	imports::net::Request,
@@ -42,6 +43,61 @@ fn rating_for(tags: &[String]) -> ContentRating {
 	}
 }
 
+fn parse_home_cards(url: &str, selector: &str) -> Result<Vec<Manga>> {
+	let html = Request::get(url)?.html()?;
+	let hide_nsfw = !show_nsfw();
+	Ok(html
+		.select(selector)
+		.map(|items| {
+			items
+				.filter_map(|item| {
+					let link = item
+						.select_first("a[href*='/manga/']")
+						.or_else(|| item.select_first("a"))?;
+					let href = link.attr("abs:href").or_else(|| link.attr("href"))?;
+					let title = item
+						.select_first(".name, .title, h3, h2")
+						.and_then(|el| el.text())
+						.or_else(|| link.attr("title"))?;
+					let tags: Vec<String> = item
+						.select(".genres a, .genres span, .genres-content a")
+						.map(|tags| tags.filter_map(|tag| tag.text()).collect())
+						.unwrap_or_default();
+					let content_rating = rating_for(&tags);
+					if hide_nsfw && content_rating == ContentRating::NSFW {
+						return None;
+					}
+					let image = item.select_first("img")?;
+					Some(Manga {
+						key: href.strip_prefix_or_self(base_url()).into(),
+						title: title.trim().to_string(),
+						cover: image
+							.attr("abs:data-src")
+							.or_else(|| image.attr("abs:src"))
+							.or_else(|| image.attr("src")),
+						tags: (!tags.is_empty()).then_some(tags),
+						content_rating,
+						url: Some(href),
+						..Default::default()
+					})
+				})
+				.collect()
+		})
+		.unwrap_or_default())
+}
+
+fn first_number(text: &str) -> Option<f32> {
+	let mut number = String::new();
+	for ch in text.chars() {
+		if ch.is_ascii_digit() || (ch == '.' && !number.is_empty()) {
+			number.push(ch);
+		} else if !number.is_empty() {
+			break;
+		}
+	}
+	number.trim_matches('.').parse().ok()
+}
+
 struct KaliScan;
 
 impl Impl for KaliScan {
@@ -54,6 +110,150 @@ impl Impl for KaliScan {
 			base_url: base_url().into(),
 			..Default::default()
 		}
+	}
+
+	fn get_home(&self, _params: &Params) -> Result<HomeLayout> {
+		let base = base_url();
+		let mut components = Vec::new();
+
+		for (title, path, selector, featured, ranked) in [
+			(
+				"Top of the Week",
+				"/top/week",
+				".book-detailed-item",
+				true,
+				false,
+			),
+			("Hot Updates", "/home", ".trending-item", false, true),
+			("Trending", "/top/day", ".book-detailed-item", true, false),
+			(
+				"Most Talked About",
+				"/top/reviews",
+				".book-detailed-item",
+				false,
+				true,
+			),
+			(
+				"Most Viewed",
+				"/az-list",
+				".book-detailed-item",
+				false,
+				true,
+			),
+			(
+				"Editor's Choice",
+				"/top/comments",
+				".book-detailed-item",
+				false,
+				true,
+			),
+		] {
+			let Ok(mangas) = parse_home_cards(&format!("{base}{path}"), selector) else {
+				continue;
+			};
+			if mangas.is_empty() {
+				continue;
+			}
+			let value = if featured {
+				HomeComponentValue::BigScroller {
+					entries: mangas,
+					auto_scroll_interval: Some(6.0),
+				}
+			} else if ranked {
+				HomeComponentValue::MangaList {
+					ranking: true,
+					page_size: Some(10),
+					entries: mangas.into_iter().map(Into::into).collect(),
+					listing: None,
+				}
+			} else {
+				HomeComponentValue::Scroller {
+					entries: mangas.into_iter().map(Into::into).collect(),
+					listing: None,
+				}
+			};
+			components.push(HomeComponent {
+				title: Some(title.into()),
+				subtitle: None,
+				value,
+			});
+		}
+
+		if let Ok(html) = Request::get(format!("{base}/home"))?.html()
+			&& let Some(items) = html.select(".book-item")
+		{
+			let latest: Vec<MangaWithChapter> = items
+				.filter_map(|item| {
+					let link = item.select_first("a[href*='/manga/']")?;
+					let href = link.attr("abs:href").or_else(|| link.attr("href"))?;
+					let chapter = item.select_first("a[href*='chapter']")?;
+					let chapter_href = chapter.attr("abs:href").or_else(|| chapter.attr("href"))?;
+					let chapter_title = chapter.text()?;
+					let image = item.select_first("img")?;
+					Some(MangaWithChapter {
+						manga: Manga {
+							key: href.strip_prefix_or_self(&base).into(),
+							title: item
+								.select_first(".name, .title")
+								.and_then(|el| el.text())
+								.or_else(|| link.attr("title"))?,
+							cover: image.attr("abs:data-src").or_else(|| image.attr("abs:src")),
+							url: Some(href),
+							..Default::default()
+						},
+						chapter: Chapter {
+							key: chapter_href.strip_prefix_or_self(&base).into(),
+							chapter_number: first_number(&chapter_title),
+							title: Some(chapter_title),
+							url: Some(chapter_href),
+							..Default::default()
+						},
+					})
+				})
+				.collect();
+			if !latest.is_empty() {
+				components.insert(
+					2.min(components.len()),
+					HomeComponent {
+						title: Some("Latest Updates".into()),
+						subtitle: None,
+						value: HomeComponentValue::MangaChapterList {
+							page_size: None,
+							entries: latest,
+							listing: None,
+						},
+					},
+				);
+			}
+		}
+
+		let genres = [
+			("Action", "action"),
+			("Adventure", "adventure"),
+			("Comedy", "comedy"),
+			("Drama", "drama"),
+			("Fantasy", "fantasy"),
+			("Isekai", "isekai"),
+			("Romance", "romance"),
+			("Shoujo", "shoujo"),
+		]
+		.into_iter()
+		.map(|(title, id)| FilterItem {
+			title: title.into(),
+			values: Some(vec![FilterValue::MultiSelect {
+				id: "genre[]".into(),
+				included: vec![id.into()],
+				excluded: Vec::new(),
+			}]),
+		})
+		.collect();
+		components.push(HomeComponent {
+			title: Some("Genres".into()),
+			subtitle: None,
+			value: HomeComponentValue::Filters(genres),
+		});
+
+		Ok(HomeLayout { components })
 	}
 
 	/// Reimplemented so genres are read off the search cards, which lets NSFW
@@ -141,4 +341,9 @@ impl Impl for KaliScan {
 	}
 }
 
-register_source!(MadTheme<KaliScan>, ImageRequestProvider, DeepLinkHandler);
+register_source!(
+	MadTheme<KaliScan>,
+	Home,
+	ImageRequestProvider,
+	DeepLinkHandler
+);

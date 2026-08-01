@@ -1,8 +1,8 @@
 #![no_std]
 use aidoku::{
-	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterValue, Home, HomeComponent,
-	HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider, Manga,
-	MangaPageResult, MangaWithChapter, Page, PageContent, PageContext, Result, Source,
+	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterItem, FilterValue, Home,
+	HomeComponent, HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider,
+	Manga, MangaPageResult, MangaWithChapter, Page, PageContent, PageContext, Result, Source,
 	alloc::{String, Vec, string::ToString, vec},
 	helpers::uri::QueryParameters,
 	imports::net::Request,
@@ -74,8 +74,42 @@ fn sort_id(index: i32) -> &'static str {
 	}
 }
 
+fn period_filter(title: &str, sort: &str, period: &str) -> FilterItem {
+	FilterItem {
+		title: title.into(),
+		values: Some(vec![
+			FilterValue::Select {
+				id: "sort".into(),
+				value: sort.into(),
+			},
+			FilterValue::Select {
+				id: "period".into(),
+				value: period.into(),
+			},
+		]),
+	}
+}
+
+fn type_filter(title: &str, kind: &str, sort: &str) -> FilterItem {
+	FilterItem {
+		title: title.into(),
+		values: Some(vec![
+			FilterValue::Select {
+				id: "sort".into(),
+				value: sort.into(),
+			},
+			FilterValue::MultiSelect {
+				id: "type".into(),
+				included: vec![kind.into()],
+				excluded: Vec::new(),
+			},
+		]),
+	}
+}
+
 fn fetch_series(
 	sort: &str,
+	period: Option<&str>,
 	query: Option<&str>,
 	types: &[String],
 	statuses: &[String],
@@ -90,6 +124,9 @@ fn fetch_series(
 	);
 	qs.push("limit", Some(&PAGE_SIZE.to_string()));
 	qs.push("offset", Some(&offset.to_string()));
+	if let Some(period) = period {
+		qs.push("period", Some(period));
+	}
 	if let Some(query) = query.filter(|q| !q.is_empty()) {
 		qs.push("q", Some(query));
 	}
@@ -98,9 +135,11 @@ fn fetch_series(
 	} else {
 		types.to_vec()
 	};
-	qs.push("type", Some(&types.join(",")));
-	if !statuses.is_empty() {
-		qs.push("status", Some(&statuses.join(",")));
+	for kind in &types {
+		qs.push("type", Some(kind));
+	}
+	for status in statuses {
+		qs.push("status", Some(status));
 	}
 	api_get(&format!("{API_URL}/series?{qs}"))
 }
@@ -125,12 +164,15 @@ impl Source for Chikari {
 			return Ok(result);
 		}
 
-		let mut sort = "popular";
+		let mut sort = String::from("popular");
+		let mut period: Option<String> = None;
 		let mut types: Vec<String> = Vec::new();
 		let mut statuses: Vec<String> = Vec::new();
 		for filter in filters {
 			match filter {
-				FilterValue::Sort { index, .. } => sort = sort_id(index),
+				FilterValue::Sort { index, .. } => sort = sort_id(index).into(),
+				FilterValue::Select { id, value } if id == "sort" => sort = value,
+				FilterValue::Select { id, value } if id == "period" => period = Some(value),
 				FilterValue::MultiSelect { id, included, .. } if id == "type" => types = included,
 				FilterValue::MultiSelect { id, included, .. } if id == "status" => {
 					statuses = included
@@ -142,7 +184,8 @@ impl Source for Chikari {
 		let page = page.max(1);
 		let offset = (page - 1) * PAGE_SIZE;
 		let data = fetch_series(
-			sort,
+			&sort,
+			period.as_deref(),
 			(!query.is_empty()).then_some(query),
 			&types,
 			&statuses,
@@ -332,7 +375,9 @@ impl Home for Chikari {
 			"content_rating",
 			Some(&settings::content_ratings().join(",")),
 		);
-		qs.push("type", Some(&settings::content_types().join(",")));
+		for kind in settings::content_types() {
+			qs.push("type", Some(&kind));
+		}
 		let home: HomeResponse = api_get(&format!("{API_URL}/home?{qs}"))?;
 
 		let mut components: Vec<HomeComponent> = Vec::new();
@@ -389,7 +434,7 @@ impl Home for Chikari {
 				}
 				slug => {
 					let (title, listing_id) = match slug {
-						"trending" => ("Trending", "trending"),
+						"trending" => continue,
 						"top-rated" => ("Top Rated", "top_rated"),
 						"recently-added" => ("Recently Added", "added"),
 						_ => continue,
@@ -420,24 +465,42 @@ impl Home for Chikari {
 			}
 		}
 
-		// The home feed has no bookmark row, so pull it from the series endpoint.
-		if let Ok(data) = fetch_series("most_bookmarked", None, &[], &[], 0) {
-			let entries: Vec<Link> = data.items.into_iter().map(item_to_link).collect();
-			if !entries.is_empty() {
-				components.push(HomeComponent {
-					title: Some("Most Bookmarked".into()),
-					subtitle: None,
-					value: HomeComponentValue::Scroller {
-						entries,
-						listing: Some(Listing {
-							id: "most_bookmarked".into(),
-							name: "Most Bookmarked".into(),
-							..Default::default()
-						}),
-					},
-				});
-			}
-		}
+		components.push(HomeComponent {
+			title: Some("Trending".into()),
+			subtitle: None,
+			value: HomeComponentValue::Filters(vec![
+				period_filter("Today", "trending-day", "day"),
+				period_filter("Week", "trending-week", "week"),
+				period_filter("Month", "trending-month", "month"),
+			]),
+		});
+		components.push(HomeComponent {
+			title: Some("Most Bookmarked".into()),
+			subtitle: None,
+			value: HomeComponentValue::Filters(vec![
+				period_filter("Today", "most_bookmarked", "day"),
+				period_filter("Week", "most_bookmarked", "week"),
+				period_filter("Month", "most_bookmarked", "month"),
+			]),
+		});
+		components.push(HomeComponent {
+			title: Some("Popular by Type".into()),
+			subtitle: None,
+			value: HomeComponentValue::Filters(vec![
+				type_filter("Manga", "manga", "popular"),
+				type_filter("Manhwa", "manhwa", "popular"),
+				type_filter("Manhua", "manhua", "popular"),
+			]),
+		});
+		components.push(HomeComponent {
+			title: Some("Top Rated by Type".into()),
+			subtitle: None,
+			value: HomeComponentValue::Filters(vec![
+				type_filter("Manga", "manga", "top_rated"),
+				type_filter("Manhwa", "manhwa", "top_rated"),
+				type_filter("Manhua", "manhua", "top_rated"),
+			]),
+		});
 
 		Ok(HomeLayout { components })
 	}
@@ -456,7 +519,7 @@ impl ListingProvider for Chikari {
 		};
 		let page = page.max(1);
 		let offset = (page - 1) * PAGE_SIZE;
-		let data = fetch_series(sort, None, &[], &[], offset)?;
+		let data = fetch_series(sort, None, None, &[], &[], offset)?;
 		let next_offset = offset + data.items.len() as i32;
 		let has_next_page = !data.items.is_empty() && next_offset < data.total;
 		let entries = data.items.into_iter().map(item_to_manga).collect();

@@ -78,6 +78,7 @@ struct FeaturedEntry {
 	#[serde(default)]
 	title: String,
 	thumbnail: Option<String>,
+	banner: Option<String>,
 	description: Option<String>,
 	author: Option<String>,
 }
@@ -463,7 +464,8 @@ impl Home for TempleScan {
 				.map(|entry| Manga {
 					key: entry.series_slug,
 					title: entry.title,
-					cover: image_url(entry.thumbnail.as_deref()),
+					cover: image_url(entry.banner.as_deref())
+						.or_else(|| image_url(entry.thumbnail.as_deref())),
 					description: entry.description.as_deref().map(strip_html),
 					authors: entry.author.map(|a| vec![a]),
 					content_rating: ContentRating::Safe,

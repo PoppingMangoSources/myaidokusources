@@ -19,4 +19,9 @@ impl Impl for BunManga {
 	}
 }
 
-register_source!(Madara<BunManga>, DeepLinkHandler, ImageRequestProvider);
+register_source!(
+	Madara<BunManga>,
+	Home,
+	DeepLinkHandler,
+	ImageRequestProvider
+);
