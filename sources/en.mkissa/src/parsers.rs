@@ -191,7 +191,7 @@ pub fn parse_chapters(data: &ChaptersData, manga_key: &str) -> Vec<Chapter> {
 		.unwrap_or(&[]);
 	let infos: &[EpisodeInfo] = data.episode_infos.as_deref().unwrap_or(&[]);
 
-	sub
+	let mut chapters: Vec<Chapter> = sub
 		.iter()
 		.map(|num| {
 			let info = infos
@@ -216,7 +216,14 @@ pub fn parse_chapters(data: &ChaptersData, manga_key: &str) -> Vec<Chapter> {
 				..Default::default()
 			}
 		})
-		.collect()
+		.collect();
+
+	chapters.sort_by(|a, b| {
+		b.chapter_number
+			.partial_cmp(&a.chapter_number)
+			.unwrap_or(core::cmp::Ordering::Equal)
+	});
+	chapters
 }
 
 fn is_absolute(url: &str) -> bool {

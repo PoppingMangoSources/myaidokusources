@@ -41,7 +41,7 @@ If you want the complete, actively maintained set, use the Paperback repository.
 
 <h3><img src="media/sources/mkissa.png" width="24" align="top"/>&nbsp; Mkissa &nbsp;<sub><a href="https://mkissa.to">mkissa.to</a></sub></h3>
 
-<sub><a href="https://poppingmangosources.github.io/myaidokusources/sources/en.allmanga-v8.aix"><b>Add to Aidoku</b></a> &nbsp;·&nbsp; <a href="https://poppingmangosources.github.io/myaidokusources/sources/en.allmanga-v8.aix">.aix (v8)</a></sub>
+<sub><a href="https://poppingmangosources.github.io/myaidokusources/sources/en.mkissa-v1.aix"><b>Add to Aidoku</b></a> &nbsp;·&nbsp; <a href="https://poppingmangosources.github.io/myaidokusources/sources/en.mkissa-v1.aix">.aix (v1)</a></sub>
 
 <h3><img src="media/sources/bunmanga.png" width="24" align="top"/>&nbsp; BunManga &nbsp;<sub><a href="https://bunmanga.com">bunmanga.com</a></sub></h3>
 

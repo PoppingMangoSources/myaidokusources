@@ -11,7 +11,7 @@ use aidoku::{
 const RESULT_TOKEN: &str = "__AIDOKU_MKISSA_PAGES__";
 const WAIT_TOKEN: &str = "__AIDOKU_MKISSA_WAIT__";
 
-/// Captures the decoded `chapterPages` response before the reader consumes it.
+/// Captures the decoded `chapterPages` payload before the reader consumes it.
 fn capture_script() -> String {
 	format!(
 		"(() => {{
@@ -19,61 +19,91 @@ fn capture_script() -> String {
 	window['{RESULT_TOKEN}'] = {{ data: '', done: false }};
 	const state = window['{RESULT_TOKEN}'];
 	let settled = false;
-	const finish = (value) => {{
-		if (settled) return;
+	const finish = (pages) => {{
+		if (settled || !pages || !Array.isArray(pages.edges) || !pages.edges.length) return;
 		settled = true;
-		state.data = value || '';
+		state.data = JSON.stringify({{ chapterPages: pages }});
 		state.done = true;
 	}};
-	const capture = (parsed, raw) => {{
+	const findPages = (value, depth = 0) => {{
+		if (!value || typeof value !== 'object' || depth > 5) return null;
+		if (Array.isArray(value.edges) && value.edges.some((edge) =>
+			edge && Array.isArray(edge.pictureUrls) && edge.pictureUrls.length
+		)) return value;
+		for (const key of Object.keys(value)) {{
+			const pages = findPages(value[key], depth + 1);
+			if (pages) return pages;
+		}}
+		return null;
+	}};
+	const capture = (parsed) => {{
 		try {{
-			const pages = parsed && (parsed.chapterPages || (parsed.data && parsed.data.chapterPages));
-			if (pages && pages.edges && pages.edges.length) finish(raw);
+			const pages = findPages(parsed);
+			if (pages) finish(pages);
 		}} catch (_) {{}}
 	}};
 	const originalParse = JSON.parse;
 	JSON.parse = new Proxy(originalParse, {{
 		apply(target, thisArg, args) {{
 			const parsed = Reflect.apply(target, thisArg, args);
-			capture(parsed, typeof args[0] === 'string' ? args[0] : JSON.stringify(parsed));
+			capture(parsed);
 			return parsed;
 		}}
 	}});
-	const originalJson = Response.prototype.json;
-	Response.prototype.json = function () {{
-		return originalJson.call(this).then((parsed) => {{
-			capture(parsed, JSON.stringify(parsed));
-			return parsed;
-		}});
-	}};
+	if (window.Response) {{
+		const originalJson = Response.prototype.json;
+		Response.prototype.json = function () {{
+			return originalJson.call(this).then((parsed) => {{
+				capture(parsed);
+				return parsed;
+			}});
+		}};
+	}}
 	const originalFetch = window.fetch;
 	if (originalFetch) window.fetch = function (...args) {{
 		return originalFetch.apply(this, args).then((response) => {{
 			try {{
 				response.clone().text().then((raw) => {{
-					try {{ capture(originalParse(raw), raw); }} catch (_) {{}}
+					try {{ capture(originalParse(raw)); }} catch (_) {{}}
 				}});
 			}} catch (_) {{}}
 			return response;
 		}});
 	}};
-	const originalOpen = XMLHttpRequest.prototype.open;
-	XMLHttpRequest.prototype.open = function (...args) {{
-		this.addEventListener('load', function () {{
-			try {{
-				const raw = this.responseText;
-				capture(originalParse(raw), raw);
-			}} catch (_) {{}}
-		}});
-		return originalOpen.apply(this, args);
-	}};
-	setTimeout(() => finish(''), 18000);
+	if (window.XMLHttpRequest) {{
+		const originalOpen = XMLHttpRequest.prototype.open;
+		XMLHttpRequest.prototype.open = function (...args) {{
+			this.addEventListener('load', function () {{
+				try {{ capture(originalParse(this.responseText)); }} catch (_) {{}}
+			}});
+			return originalOpen.apply(this, args);
+		}};
+	}}
+	if (window.TextDecoder) {{
+		const originalDecode = TextDecoder.prototype.decode;
+		TextDecoder.prototype.decode = function (...args) {{
+			const value = originalDecode.apply(this, args);
+			try {{ capture(originalParse(value)); }} catch (_) {{}}
+			return value;
+		}};
+	}}
+	try {{
+		const subtle = window.crypto && window.crypto.subtle;
+		if (subtle) {{
+			const originalDecrypt = subtle.decrypt.bind(subtle);
+			subtle.decrypt = function (...args) {{
+				return originalDecrypt(...args).then((buffer) => {{
+					try {{ capture(originalParse(new TextDecoder().decode(buffer))); }} catch (_) {{}}
+					return buffer;
+				}});
+			}};
+		}}
+	}} catch (_) {{}}
 }})()"
 	)
 }
 
 /// Loads a chapter in a background web view and returns its page urls.
-///
 pub fn page_urls_via_webview(manga_id: &str, chapter: &str) -> Result<Vec<String>> {
 	let urls = collect_pages(manga_id, chapter)?;
 	if urls.is_empty() {
@@ -87,7 +117,7 @@ pub fn page_urls_via_webview(manga_id: &str, chapter: &str) -> Result<Vec<String
 }
 
 fn collect_pages(manga_id: &str, chapter: &str) -> Result<Vec<String>> {
-	let reader_url = format!("{DOMAIN}/manga/{manga_id}/chapter-{chapter}-sub");
+	let reader_url = format!("{DOMAIN}/manga/{manga_id}/chapter-{chapter}-sub/");
 	let response = Request::get(&reader_url)?
 		.header("Referer", &format!("{DOMAIN}/"))
 		.header("Accept", "text/html,application/xhtml+xml,*/*;q=0.8")
@@ -110,7 +140,7 @@ fn collect_pages(manga_id: &str, chapter: &str) -> Result<Vec<String>> {
 	)?;
 
 	let mut result = String::new();
-	for _ in 0..20 {
+	for _ in 0..30 {
 		if let Ok(value) = web_view.eval(&format!(
 			"(() => {{
 				const state = window['{RESULT_TOKEN}'];

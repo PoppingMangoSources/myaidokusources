@@ -59,6 +59,7 @@ jobs:
             if [[ "$i" == *"sources"* ]]; then
               (
                 cd "$i"
+                cargo clean --release
                 aidoku package
               )
             fi

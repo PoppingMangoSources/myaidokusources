@@ -73,6 +73,7 @@ jobs:
           for src in ./sources/*; do
             (
               cd "$src"
+              cargo clean --release
               aidoku package
             )
           done

@@ -1,10 +1,5 @@
 use crate::models::*;
-use aidoku::{
-	Result,
-	alloc::Vec,
-	imports::net::Request,
-	prelude::*,
-};
+use aidoku::{Result, alloc::Vec, imports::net::Request, prelude::*};
 use serde::de::DeserializeOwned;
 
 /// Sends a GraphQL POST request and returns the typed `data` payload.
