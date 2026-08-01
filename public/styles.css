@@ -1,33 +1,38 @@
 :root {
-	--bg: #fff;
-	--fg: rgb(29, 29, 31);
-	--highlight: #f1f3f6;
-	--border: #e0e0e0;
-	--gray: rgb(110, 110, 115);
-	--badge-fg: #444;
-	--badge-17-bg: rgba(255, 162, 0, 0.3);
-	--badge-18-bg: rgba(229, 56, 53, 0.3);
-	--button-bg: #ff2f52;
-	--button-bg-hover: #e82c4b;
+	--bg: #fff6fb;
+	--fg: rgb(29, 21, 33);
+	--highlight: #ffe9f4;
+	--border: #ffcfe6;
+	--gray: rgb(126, 106, 122);
+	--badge-fg: #7a3560;
+	--badge-17-bg: rgba(34, 211, 238, 0.28);
+	--badge-18-bg: rgba(255, 77, 157, 0.3);
+	--button-bg: #ff4d9d;
+	--button-bg-hover: #e63c89;
 	--input-bg: #fff;
-	--input-fg: #18191a;
-	--input-border: #e0e0e0;
-	--github-icon: #181717;
+	--input-fg: #1d1521;
+	--input-border: #ffcfe6;
+	--github-icon: #a3255f;
+	--accent-cyan: #0e9bb5;
 }
 
 @media (prefers-color-scheme: dark) {
 	:root {
-		--bg: #181a1c;
-		--fg: #f3f3f3;
-		--highlight: #23272e;
-		--border: #33363a;
-		--gray: #888;
-		--badge-fg: #999;
-		--button-bg-hover: #fc4463;
-		--input-bg: #23272e;
-		--input-fg: #f3f3f3;
-		--input-border: #33363a;
-		--github-icon: #888;
+		--bg: #140e1c;
+		--fg: #fbeaf4;
+		--highlight: #23162e;
+		--border: #3a2247;
+		--gray: #a892b8;
+		--badge-fg: #ff9ecb;
+		--badge-17-bg: rgba(34, 211, 238, 0.25);
+		--badge-18-bg: rgba(255, 77, 157, 0.28);
+		--button-bg: #ff4d9d;
+		--button-bg-hover: #ff70b3;
+		--input-bg: #23162e;
+		--input-fg: #fbeaf4;
+		--input-border: #3a2247;
+		--github-icon: #67e8f9;
+		--accent-cyan: #67e8f9;
 	}
 }
 
@@ -123,7 +128,7 @@ main {
 	font-weight: 500;
 	border-radius: 0.6em;
 	border: 1.5px solid var(--button-bg);
-	background: var(--button-bg);
+	background: linear-gradient(135deg, var(--button-bg), var(--accent-cyan));
 	color: #fff;
 	cursor: pointer;
 	transition:
@@ -431,4 +436,32 @@ main {
 	pointer-events: none;
 	transition: opacity 0.08s;
 	z-index: 10;
+}
+
+
+/* Pink and cyan accents */
+.main-heading {
+	background: linear-gradient(135deg, #ff4d9d, #22d3ee);
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+}
+
+a {
+	color: var(--accent-cyan);
+}
+
+code {
+	border: 1px solid var(--border);
+	background: var(--highlight);
+	color: var(--fg);
+	border-radius: 6px;
+	padding: 0.15em 0.4em;
+}
+
+input:focus,
+select:focus {
+	outline: 2px solid var(--accent-cyan);
+	outline-offset: 1px;
+	border-color: var(--accent-cyan);
 }

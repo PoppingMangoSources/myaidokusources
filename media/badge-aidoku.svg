@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="270" height="56" viewBox="0 0 270 56" role="img" aria-label="Aidoku 0.7 or newer">
   <defs>
-    <linearGradient id="mango" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ffb144"/>
-      <stop offset="1" stop-color="#f09a36"/>
+    <linearGradient id="pinkcyan" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff4d9d"/>
+      <stop offset="1" stop-color="#22d3ee"/>
     </linearGradient>
   </defs>
-  <rect x="0" y="0" width="270" height="56" rx="14" fill="url(#mango)"/>
-  <text x="135" y="37" text-anchor="middle" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="24" font-weight="800" letter-spacing="3" fill="#22140a">AIDOKU 0.7+</text>
+  <rect x="0" y="0" width="270" height="56" rx="14" fill="url(#pinkcyan)"/>
+  <text x="135" y="37" text-anchor="middle" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="24" font-weight="800" letter-spacing="3" fill="#1a0f1e">AIDOKU 0.7+</text>
 </svg>

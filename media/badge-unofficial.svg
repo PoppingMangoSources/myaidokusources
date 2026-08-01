@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="360" height="56" viewBox="0 0 360 56" role="img" aria-label="Best effort, not actively maintained">
-  <rect x="1.5" y="1.5" width="357" height="53" rx="14" fill="#221019" stroke="#e8749c" stroke-opacity="0.5" stroke-width="3"/>
-  <text x="180" y="37" text-anchor="middle" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="2" fill="#f9c9d8">BEST EFFORT · NOT 24/7</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="56" viewBox="0 0 360 56" role="img" aria-label="Best effort, not maintained around the clock">
+  <rect x="1.5" y="1.5" width="357" height="53" rx="14" fill="#1c1026" stroke="#ff4d9d" stroke-opacity="0.65" stroke-width="3"/>
+  <text x="180" y="37" text-anchor="middle" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="2" fill="#ff8ec4">BEST EFFORT · NOT 24/7</text>
 </svg>
