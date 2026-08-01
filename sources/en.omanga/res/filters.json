@@ -1,0 +1,126 @@
+[
+	{
+		"type": "sort",
+		"id": "sort",
+		"canAscend": false,
+		"default": {
+			"index": 0,
+			"ascending": false
+		},
+		"options": [
+			"Popularity",
+			"Recently Updated",
+			"Newest",
+			"Rating",
+			"Votes",
+			"Likes",
+			"Chapter Count",
+			"Views"
+		]
+	},
+	{
+		"type": "multi-select",
+		"id": "type",
+		"title": "Type",
+		"canExclude": true,
+		"options": [
+			"Manga",
+			"Manhwa",
+			"Manhua",
+			"Comic"
+		],
+		"ids": [
+			"Manga",
+			"Manhwa",
+			"Manhua",
+			"Comic"
+		]
+	},
+	{
+		"type": "multi-select",
+		"id": "status",
+		"title": "Status",
+		"canExclude": false,
+		"options": [
+			"Ongoing",
+			"Completed",
+			"Hiatus",
+			"Cancelled",
+			"Announced"
+		],
+		"ids": [
+			"Ongoing",
+			"Completed",
+			"Hiatus",
+			"Cancelled",
+			"Announced"
+		]
+	},
+	{
+		"type": "multi-select",
+		"id": "genre",
+		"title": "Genres",
+		"isGenre": true,
+		"canExclude": true,
+		"options": [
+			"Action",
+			"Adventure",
+			"Comedy",
+			"Drama",
+			"Ecchi",
+			"Fantasy",
+			"Harem",
+			"Historical",
+			"Horror",
+			"Isekai",
+			"Josei",
+			"Martial Arts",
+			"Mature",
+			"Mecha",
+			"Mystery",
+			"Psychological",
+			"Romance",
+			"School Life",
+			"Sci-Fi",
+			"Seinen",
+			"Shoujo",
+			"Shounen",
+			"Slice of Life",
+			"Sports",
+			"Supernatural",
+			"Thriller",
+			"Tragedy",
+			"Webtoon"
+		],
+		"ids": [
+			"Action",
+			"Adventure",
+			"Comedy",
+			"Drama",
+			"Ecchi",
+			"Fantasy",
+			"Harem",
+			"Historical",
+			"Horror",
+			"Isekai",
+			"Josei",
+			"Martial Arts",
+			"Mature",
+			"Mecha",
+			"Mystery",
+			"Psychological",
+			"Romance",
+			"School Life",
+			"Sci-Fi",
+			"Seinen",
+			"Shoujo",
+			"Shounen",
+			"Slice of Life",
+			"Sports",
+			"Supernatural",
+			"Thriller",
+			"Tragedy",
+			"Webtoon"
+		]
+	}
+]

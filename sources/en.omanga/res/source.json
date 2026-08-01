@@ -1,0 +1,19 @@
+{
+	"info": {
+		"id": "en.omanga",
+		"name": "oManga",
+		"version": 1,
+		"url": "https://omanga.to",
+		"contentRating": 1,
+		"languages": ["en"]
+	},
+	"config": {
+		"supportsTagSearch": true
+	},
+	"listings": [
+		{ "id": "real_views", "name": "Popular" },
+		{ "id": "updated_at", "name": "Latest Updates" },
+		{ "id": "created_at", "name": "Newest" },
+		{ "id": "rating", "name": "Top Rated" }
+	]
+}

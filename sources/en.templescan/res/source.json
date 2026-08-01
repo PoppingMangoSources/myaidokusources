@@ -1,0 +1,15 @@
+{
+	"info": {
+		"id": "en.templescan",
+		"name": "Temple Scan",
+		"version": 1,
+		"url": "https://templetoons.com",
+		"contentRating": 1,
+		"languages": ["en"]
+	},
+	"listings": [
+		{ "id": "views", "name": "Most Viewed" },
+		{ "id": "updated", "name": "Latest Updates" },
+		{ "id": "created", "name": "Newest" }
+	]
+}

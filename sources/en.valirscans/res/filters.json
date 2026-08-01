@@ -1,0 +1,9 @@
+[
+	{
+		"type": "select",
+		"id": "type",
+		"title": "Type",
+		"options": ["All", "Comic", "Novel"],
+		"ids": ["", "comic", "novel"]
+	}
+]

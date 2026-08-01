@@ -1,0 +1,13 @@
+{
+	"info": {
+		"id": "en.valirscans",
+		"name": "ValirScans",
+		"version": 1,
+		"url": "https://valirscans.org",
+		"contentRating": 1,
+		"languages": ["en"]
+	},
+	"listings": [
+		{ "id": "browse", "name": "All Series" }
+	]
+}

@@ -1,0 +1,16 @@
+[
+	{
+		"type": "sort",
+		"id": "sort",
+		"canAscend": false,
+		"default": { "index": 0, "ascending": false },
+		"options": ["Most Viewed", "Recently Updated", "Newest"]
+	},
+	{
+		"type": "select",
+		"id": "status",
+		"title": "Status",
+		"options": ["All", "Ongoing", "Hiatus", "Completed", "Canceled", "Dropped"],
+		"ids": ["", "Ongoing", "Hiatus", "Completed", "Canceled", "Dropped"]
+	}
+]
