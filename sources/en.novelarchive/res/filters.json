@@ -3,22 +3,46 @@
 		"type": "sort",
 		"id": "sort",
 		"canAscend": false,
-		"default": 0,
-		"options": ["Recent", "Popular", "Top Rated", "Chapters"]
+		"default": {
+			"index": 0,
+			"ascending": false
+		},
+		"options": [
+			"Recent",
+			"Popular",
+			"Top Rated",
+			"Chapters"
+		]
 	},
 	{
 		"type": "select",
 		"id": "status",
 		"title": "Status",
-		"options": ["All", "Ongoing", "Completed", "Hiatus"],
-		"ids": ["all", "ongoing", "completed", "hiatus"]
+		"options": [
+			"All",
+			"Ongoing",
+			"Completed",
+			"Hiatus"
+		],
+		"ids": [
+			"all",
+			"ongoing",
+			"completed",
+			"hiatus"
+		]
 	},
 	{
 		"type": "select",
 		"id": "genre_match",
 		"title": "Genre Match",
-		"options": ["AND", "OR"],
-		"ids": ["all", "any"],
+		"options": [
+			"AND",
+			"OR"
+		],
+		"ids": [
+			"all",
+			"any"
+		],
 		"hideFromHeader": true
 	}
 ]

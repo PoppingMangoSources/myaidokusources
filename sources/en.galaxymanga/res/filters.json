@@ -3,7 +3,17 @@
 		"type": "sort",
 		"id": "order",
 		"canAscend": false,
-		"default": 0,
-		"options": ["Default", "A-Z", "Z-A", "Recently Updated", "Recently Added", "Popular"]
+		"default": {
+			"index": 0,
+			"ascending": false
+		},
+		"options": [
+			"Default",
+			"A-Z",
+			"Z-A",
+			"Recently Updated",
+			"Recently Added",
+			"Popular"
+		]
 	}
 ]

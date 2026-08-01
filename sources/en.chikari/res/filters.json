@@ -3,7 +3,10 @@
 		"type": "sort",
 		"id": "sort",
 		"canAscend": false,
-		"default": 0,
+		"default": {
+			"index": 0,
+			"ascending": false
+		},
 		"options": [
 			"Popularity",
 			"Top Rated",
@@ -18,15 +21,37 @@
 		"id": "type",
 		"title": "Type",
 		"canExclude": false,
-		"options": ["Manga", "Manhwa", "Manhua", "OEL"],
-		"ids": ["manga", "manhwa", "manhua", "oel"]
+		"options": [
+			"Manga",
+			"Manhwa",
+			"Manhua",
+			"OEL"
+		],
+		"ids": [
+			"manga",
+			"manhwa",
+			"manhua",
+			"oel"
+		]
 	},
 	{
 		"type": "multi-select",
 		"id": "status",
 		"title": "Status",
 		"canExclude": false,
-		"options": ["Releasing", "Completed", "Hiatus", "Cancelled", "Upcoming"],
-		"ids": ["releasing", "completed", "hiatus", "cancelled", "upcoming"]
+		"options": [
+			"Releasing",
+			"Completed",
+			"Hiatus",
+			"Cancelled",
+			"Upcoming"
+		],
+		"ids": [
+			"releasing",
+			"completed",
+			"hiatus",
+			"cancelled",
+			"upcoming"
+		]
 	}
 ]

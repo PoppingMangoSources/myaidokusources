@@ -3,15 +3,32 @@
 		"type": "sort",
 		"id": "sort",
 		"canAscend": false,
-		"default": 0,
-		"options": ["Update", "Name Ascending", "Name Descending"]
+		"default": {
+			"index": 0,
+			"ascending": false
+		},
+		"options": [
+			"Update",
+			"Name Ascending",
+			"Name Descending"
+		]
 	},
 	{
 		"type": "select",
 		"id": "country",
 		"title": "Country",
-		"options": ["All", "Japan", "China", "Korea"],
-		"ids": ["ALL", "JP", "CN", "KR"]
+		"options": [
+			"All",
+			"Japan",
+			"China",
+			"Korea"
+		],
+		"ids": [
+			"ALL",
+			"JP",
+			"CN",
+			"KR"
+		]
 	},
 	{
 		"type": "multi-select",

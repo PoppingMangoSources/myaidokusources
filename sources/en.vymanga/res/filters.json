@@ -3,8 +3,16 @@
 		"type": "sort",
 		"id": "sort",
 		"canAscend": false,
-		"default": 0,
-		"options": ["Relevance", "Latest Updated", "Top Rated", "Newest"]
+		"default": {
+			"index": 0,
+			"ascending": false
+		},
+		"options": [
+			"Relevance",
+			"Latest Updated",
+			"Top Rated",
+			"Newest"
+		]
 	},
 	{
 		"type": "text",

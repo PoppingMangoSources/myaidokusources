@@ -3,7 +3,10 @@
 		"type": "sort",
 		"id": "sort",
 		"canAscend": false,
-		"default": 0,
+		"default": {
+			"index": 0,
+			"ascending": false
+		},
 		"options": [
 			"Views",
 			"A-Z",
