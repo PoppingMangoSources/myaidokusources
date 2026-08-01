@@ -4,122 +4,106 @@ use aidoku::{
 	alloc::{String, Vec},
 	imports::js::WebView,
 	imports::net::Request,
-	imports::std::sleep,
 	prelude::*,
 };
 
-/// Captures the reader's decoded page payload.
+const RESULT_TOKEN: &str = "__AIDOKU_ALLMANGA_PAGES__";
+
+/// Watches the reader for its page images.
 ///
-/// The reader fetches its pages client side, so `JSON.parse` is proxied before
-/// the page's own scripts run and the matching object is stashed on `window`.
-const CAPTURE_SCRIPT: &str = r#"<script>
-(function () {
-  window.__amPages__ = "";
-  function capture(parsed, raw) {
-    try {
-      if (parsed && (parsed.chapterPages || (parsed.data && parsed.data.chapterPages))) {
-        if (!window.__amPages__) window.__amPages__ = raw || JSON.stringify(parsed);
-      }
-    } catch (e) {}
-  }
-  var origParse = JSON.parse;
-  JSON.parse = function (text) {
-    var parsed = origParse.apply(this, arguments);
-    capture(parsed, typeof text === "string" ? text : null);
-    return parsed;
-  };
-  if (typeof Response !== "undefined" && Response.prototype && Response.prototype.json) {
-    var origJson = Response.prototype.json;
-    Response.prototype.json = function () {
-      return origJson.call(this).then(function (parsed) {
-        capture(parsed, null);
-        return parsed;
-      });
-    };
-  }
-})();
-</script>"#;
+/// The reader fetches and renders its pages itself, so rather than racing its
+/// scripts the collector polls the document and only reports once the image
+/// count has held steady, which means lazy loading has caught up.
+fn collector_script() -> String {
+	format!(
+		"(() => {{
+	window['{RESULT_TOKEN}'] = {{ data: null, isDone: false, isAbort: false }};
+	const state = window['{RESULT_TOKEN}'];
+	let last = -1;
+	let stable = 0;
 
-/// Reads page urls straight off the rendered reader as a last resort.
-const SCRAPE_SCRIPT: &str = r#"(function () {
-  var out = [];
-  var seen = {};
-  var images = document.querySelectorAll("img");
-  for (var i = 0; i < images.length; i++) {
-    var src = images[i].currentSrc || images[i].getAttribute("src") || "";
-    if (!src || src.indexOf("data:") === 0) continue;
-    if (src.indexOf("youtube-anime") === -1 && src.indexOf("/manga/") === -1) continue;
-    if (seen[src]) continue;
-    seen[src] = 1;
-    out.push(src);
-  }
-  return JSON.stringify(out);
-})()"#;
+	const collect = () => {{
+		const seen = {{}};
+		const out = [];
+		const images = document.querySelectorAll('img');
+		for (let i = 0; i < images.length; i++) {{
+			const src = images[i].currentSrc || images[i].getAttribute('src') || '';
+			if (!src || src.indexOf('data:') === 0) continue;
+			if (src.indexOf('youtube-anime.com') === -1) continue;
+			if (src.indexOf('aln.youtube-anime.com') !== -1) continue;
+			if (seen[src]) continue;
+			seen[src] = 1;
+			out.push(src);
+		}}
+		return out;
+	}};
 
-fn inject(html: &str) -> String {
-	match html.find("<head>") {
-		Some(index) => {
-			let (start, rest) = html.split_at(index + "<head>".len());
-			format!("{start}{CAPTURE_SCRIPT}{rest}")
-		}
-		None => format!("{CAPTURE_SCRIPT}{html}"),
-	}
+	const finish = (urls) => {{
+		state.data = JSON.stringify(urls);
+		state.isDone = true;
+	}};
+
+	const tick = setInterval(() => {{
+		// Nudge the reader so lazily mounted pages render.
+		window.scrollTo(0, document.body.scrollHeight);
+		const urls = collect();
+		stable = urls.length > 0 && urls.length === last ? stable + 1 : 0;
+		last = urls.length;
+		if (urls.length > 0 && stable >= 3) {{
+			clearInterval(tick);
+			finish(urls);
+		}}
+	}}, 250);
+
+	setTimeout(() => {{
+		clearInterval(tick);
+		if (state.isDone) return;
+		const urls = collect();
+		if (urls.length > 0) {{
+			finish(urls);
+		}} else {{
+			state.isAbort = true;
+		}}
+	}}, 20000);
+
+	return '';
+}})()"
+	)
 }
 
 /// Loads a chapter in a background web view and returns its page urls.
 pub fn page_urls_via_webview(manga_id: &str, chapter: &str) -> Result<Vec<String>> {
 	let reader_url = format!("{DOMAIN}/manga/{manga_id}/chapter-{chapter}-sub");
-	let html = Request::get(&reader_url)?
-		.header("Referer", &format!("{DOMAIN}/"))
-		.send()?
-		.get_string()?;
 
-	let webview = WebView::new();
-	webview
-		.load_html_blocking(&inject(&html), Some(&reader_url))
-		.map_err(|_| error!("Unable to load the reader"))?;
+	// Load the real page so its scripts run against the site's own origin.
+	let web_view = WebView::new();
+	web_view.load_blocking(
+		Request::get(&reader_url)?
+			.header("Referer", &format!("{DOMAIN}/"))
+			.header("Accept", "text/html,application/xhtml+xml,*/*;q=0.8"),
+	)?;
 
-	// The payload lands once the reader's own fetch resolves, so give it a moment.
-	for attempt in 0..10 {
-		if attempt > 0 {
-			sleep(1);
-		}
-		if let Ok(captured) = webview.eval("window.__amPages__ || \"\"")
-			&& !captured.is_empty()
-			&& let Some(urls) = urls_from_payload(&captured)
-			&& !urls.is_empty()
+	web_view.eval(&collector_script())?;
+
+	while web_view.eval(&format!(
+		"(() => {{ return window['{RESULT_TOKEN}'].isDone ? 'true' : 'false'; }})()"
+	))? == "false"
+	{
+		if web_view.eval(&format!(
+			"(() => {{ return window['{RESULT_TOKEN}'].isAbort ? 'true' : 'false'; }})()"
+		))? == "true"
 		{
-			return Ok(urls);
+			bail!("The reader did not produce any pages");
 		}
 	}
 
-	let scraped = webview
-		.eval(SCRAPE_SCRIPT)
-		.map_err(|_| error!("Unable to read the reader pages"))?;
-	Ok(serde_json::from_str::<Vec<String>>(&scraped).unwrap_or_default())
-}
+	let result = web_view.eval(&format!(
+		"(() => {{ return window['{RESULT_TOKEN}'].data || ''; }})()"
+	))?;
 
-/// Pulls page urls out of a captured `chapterPages` payload.
-fn urls_from_payload(raw: &str) -> Option<Vec<String>> {
-	#[derive(serde::Deserialize)]
-	struct Envelope {
-		#[serde(rename = "chapterPages")]
-		chapter_pages: Option<ChapterPages>,
-		data: Option<Inner>,
-	}
-
-	#[derive(serde::Deserialize)]
-	struct Inner {
-		#[serde(rename = "chapterPages")]
-		chapter_pages: Option<ChapterPages>,
-	}
-
-	let envelope: Envelope = serde_json::from_str(raw).ok()?;
-	let pages = envelope
-		.chapter_pages
-		.or_else(|| envelope.data.and_then(|inner| inner.chapter_pages))?;
-	Some(crate::parsers::parse_page_urls(
-		&pages,
-		&crate::settings::image_quality(),
-	))
+	let urls: Vec<String> = serde_json::from_str(&result).unwrap_or_default();
+	Ok(urls
+		.into_iter()
+		.map(|url| crate::parsers::apply_image_quality(&url, &crate::settings::image_quality()))
+		.collect())
 }
