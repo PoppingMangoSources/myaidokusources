@@ -3,9 +3,9 @@ use crate::{
 	helpers::{self, ElementImageAttr},
 };
 use aidoku::{
-	Chapter, ContentRating, DeepLinkResult, FilterValue, HomeComponent, HomeComponentValue,
-	HomeLayout, Link, Manga, MangaPageResult, MangaStatus, MangaWithChapter, Page, PageContent,
-	PageContext, Result, Viewer,
+	Chapter, ContentRating, DeepLinkResult, FilterItem, FilterValue, HomeComponent,
+	HomeComponentValue, HomeLayout, Link, Listing, Manga, MangaPageResult, MangaStatus,
+	MangaWithChapter, Page, PageContent, PageContext, Result, Viewer,
 	alloc::{String, Vec, string::ToString, vec},
 	helpers::{string::StripPrefixOrSelf, uri::QueryParameters},
 	imports::{
@@ -96,6 +96,32 @@ pub trait Impl {
 				.select_first("div.pagination .next, div.hpage .r")
 				.is_some(),
 		})
+	}
+
+	fn get_manga_list(
+		&self,
+		params: &Params,
+		listing: Listing,
+		page: i32,
+	) -> Result<MangaPageResult> {
+		let index = match listing.id.as_str() {
+			"alphabet" => 1,
+			"latest" => 3,
+			"fresh" | "new" => 4,
+			"popular" | "popular_today" | "popular_week" | "popular_month" | "popular_all"
+			| "recommendation" => 5,
+			_ => bail!("Unknown listing"),
+		};
+		self.get_search_manga_list(
+			params,
+			None,
+			page,
+			vec![FilterValue::Sort {
+				id: "order".into(),
+				index,
+				ascending: false,
+			}],
+		)
 	}
 
 	fn get_manga_update(
@@ -554,6 +580,63 @@ pub trait Impl {
 					}
 				}
 			}
+		}
+
+		components.push(HomeComponent {
+			title: Some("Browse by Type".into()),
+			subtitle: None,
+			value: HomeComponentValue::Filters(
+				[
+					("Manga", "manga"),
+					("Manhwa", "manhwa"),
+					("Manhua", "manhua"),
+				]
+				.into_iter()
+				.map(|(title, id)| FilterItem {
+					title: title.into(),
+					values: Some(vec![FilterValue::MultiSelect {
+						id: "type[]".into(),
+						included: vec![id.into()],
+						excluded: Vec::new(),
+					}]),
+				})
+				.collect(),
+			),
+		});
+
+		let mut seen = Vec::new();
+		let genres: Vec<FilterItem> = html
+			.select("a[href*='/genre/']")
+			.map(|links| {
+				links
+					.filter_map(|link| {
+						let title = link.text()?.trim().to_string();
+						let href = link.attr("href")?;
+						let slug = href.trim_end_matches('/').rsplit('/').next()?.to_string();
+						if title.is_empty() || slug.is_empty() || seen.iter().any(|id| id == &slug)
+						{
+							return None;
+						}
+						seen.push(slug.clone());
+						Some(FilterItem {
+							title,
+							values: Some(vec![FilterValue::MultiSelect {
+								id: "genre[]".into(),
+								included: vec![slug],
+								excluded: Vec::new(),
+							}]),
+						})
+					})
+					.take(40)
+					.collect()
+			})
+			.unwrap_or_default();
+		if !genres.is_empty() {
+			components.push(HomeComponent {
+				title: Some("Genres".into()),
+				subtitle: None,
+				value: HomeComponentValue::Filters(genres),
+			});
 		}
 
 		Ok(HomeLayout { components })

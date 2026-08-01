@@ -2,9 +2,18 @@
 	"info": {
 		"id": "en.galaxymanga",
 		"name": "Galaxy Manga",
-		"version": 1,
+		"version": 2,
 		"url": "https://galaxymanga.io",
 		"contentRating": 1,
 		"languages": ["en"]
-	}
+	},
+	"listings": [
+		{ "id": "popular", "name": "Popular" },
+		{ "id": "popular_today", "name": "Trending Today" },
+		{ "id": "popular_week", "name": "Trending This Week" },
+		{ "id": "popular_month", "name": "Trending This Month" },
+		{ "id": "latest", "name": "Latest Updates" },
+		{ "id": "recommendation", "name": "Recommendations" },
+		{ "id": "fresh", "name": "Fresh Arrivals" }
+	]
 }

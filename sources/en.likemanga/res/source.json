@@ -2,7 +2,7 @@
 	"info": {
 		"id": "en.likemanga",
 		"name": "LikeManga",
-		"version": 1,
+		"version": 3,
 		"url": "https://likemanga.ink",
 		"contentRating": 1,
 		"languages": ["en"]
@@ -17,6 +17,7 @@
 		{ "id": "top-month", "name": "Popular This Month" },
 		{ "id": "lastest-chap", "name": "Latest Updates" },
 		{ "id": "lastest-manga", "name": "Newest" },
-		{ "id": "follow", "name": "Most Followed" }
+		{ "id": "follow", "name": "Most Followed" },
+		{ "id": "hot", "name": "Hot Manga" }
 	]
 }

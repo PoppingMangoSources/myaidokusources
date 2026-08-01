@@ -244,9 +244,9 @@ impl Sort {
 			}
 			Sort::TopRated => novels.sort_by(|a, b| desc(a.rating, b.rating)),
 			Sort::MostReviewed => novels.sort_by(|a, b| desc(a.reviews, b.reviews)),
-			Sort::NewArrivals => novels.sort_by(|a, b| b.code.cmp(&a.code)),
+			Sort::NewArrivals => novels.sort_by_key(|novel| core::cmp::Reverse(novel.code)),
 			Sort::MostChapters => novels.sort_by(|a, b| desc(a.chapters, b.chapters)),
-			Sort::Title => novels.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase())),
+			Sort::Title => novels.sort_by_key(|novel| novel.name.to_lowercase()),
 		}
 	}
 }

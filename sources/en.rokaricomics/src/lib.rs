@@ -35,6 +35,7 @@ impl Impl for Rokaricomics {
 register_source!(
 	MangaThemesia<Rokaricomics>,
 	Home,
+	ListingProvider,
 	ImageRequestProvider,
 	DeepLinkHandler
 );

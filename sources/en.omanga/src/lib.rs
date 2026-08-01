@@ -1,8 +1,8 @@
 #![no_std]
 use aidoku::{
-	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterValue, Home, HomeComponent,
-	HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider, Manga,
-	MangaPageResult, MangaStatus, Page, PageContent, PageContext, Result, Source, Viewer,
+	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterItem, FilterValue, Home,
+	HomeComponent, HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider,
+	Manga, MangaPageResult, MangaStatus, Page, PageContent, PageContext, Result, Source, Viewer,
 	alloc::{String, Vec, string::ToString, vec},
 	helpers::uri::QueryParameters,
 	imports::net::Request,
@@ -40,7 +40,6 @@ struct CatalogResponse {
 
 #[derive(Deserialize, Default)]
 struct ChapterEntry {
-	id: i64,
 	#[serde(default)]
 	number: f32,
 	volume: Option<f32>,
@@ -176,15 +175,54 @@ fn fetch_catalog(query: &str) -> Result<CatalogResponse> {
 		.get_json_owned()
 }
 
-fn catalog_page(sort: &str, page: i32) -> Result<MangaPageResult> {
-	let mut qs = QueryParameters::new();
-	qs.push("sort", Some(sort));
-	qs.push("page", Some(&page.max(1).to_string()));
-	let data = fetch_catalog(&qs.to_string())?;
+fn catalog_page_query(query: &str, page: i32) -> Result<MangaPageResult> {
+	let separator = if query.is_empty() { "" } else { "&" };
+	let data = fetch_catalog(&format!("{query}{separator}page={}", page.max(1)))?;
 	Ok(MangaPageResult {
 		has_next_page: data.has_more,
 		entries: data.items.into_iter().map(item_to_manga).collect(),
 	})
+}
+
+fn listing(id: &str, name: &str) -> Option<Listing> {
+	Some(Listing {
+		id: id.into(),
+		name: name.into(),
+		..Default::default()
+	})
+}
+
+fn push_scroller(
+	components: &mut Vec<HomeComponent>,
+	title: &str,
+	id: &str,
+	query: &str,
+	ranked: bool,
+) {
+	let Ok(data) = fetch_catalog(&format!("{query}&page=1")) else {
+		return;
+	};
+	let entries: Vec<Link> = data.items.into_iter().map(item_to_link).collect();
+	if entries.is_empty() {
+		return;
+	}
+	components.push(HomeComponent {
+		title: Some(title.into()),
+		subtitle: None,
+		value: if ranked {
+			HomeComponentValue::MangaList {
+				ranking: true,
+				page_size: Some(10),
+				entries,
+				listing: listing(id, title),
+			}
+		} else {
+			HomeComponentValue::Scroller {
+				entries,
+				listing: listing(id, title),
+			}
+		},
+	});
 }
 
 fn sort_id(index: i32) -> &'static str {
@@ -320,9 +358,10 @@ impl Source for OManga {
 						.and_then(|team| team.name)
 						.map(|name| vec![name])
 						.filter(|names| !names[0].is_empty());
+					let chapter_key = entry.number.to_string();
 					Chapter {
-						url: Some(format!("{DOMAIN}/manga/{slug}/chapter/{}", entry.id)),
-						key: entry.id.to_string(),
+						url: Some(format!("{DOMAIN}/manga/{slug}/chapter/{chapter_key}")),
+						key: chapter_key,
 						title: entry
 							.title
 							.as_deref()
@@ -404,38 +443,100 @@ impl Home for OManga {
 			}
 		}
 
-		for (title, id, sort, ranked) in [
-			("Latest Updates", "updated_at", "updated_at", false),
-			("Top Rated", "rating", "rating", true),
-			("Newest", "created_at", "created_at", false),
-		] {
-			let Ok(data) = fetch_catalog(&format!("sort={sort}&page=1")) else {
-				continue;
-			};
-			let entries: Vec<Link> = data.items.into_iter().map(item_to_link).collect();
-			if entries.is_empty() {
-				continue;
-			}
-			let listing = Some(Listing {
-				id: id.into(),
-				name: title.into(),
-				..Default::default()
-			});
-			components.push(HomeComponent {
-				title: Some(title.into()),
-				subtitle: None,
-				value: if ranked {
-					HomeComponentValue::MangaList {
-						ranking: true,
-						page_size: Some(10),
-						entries,
-						listing,
-					}
-				} else {
-					HomeComponentValue::Scroller { entries, listing }
+		push_scroller(
+			&mut components,
+			"Latest Updates",
+			"updated_at",
+			"sort=updated_at",
+			false,
+		);
+
+		components.push(HomeComponent {
+			title: Some("Top Series".into()),
+			subtitle: None,
+			value: HomeComponentValue::Filters(vec![
+				FilterItem {
+					title: "From Korea".into(),
+					values: Some(vec![FilterValue::MultiSelect {
+						id: "type".into(),
+						included: vec!["Manhwa".into()],
+						excluded: Vec::new(),
+					}]),
 				},
-			});
+				FilterItem {
+					title: "From Japan".into(),
+					values: Some(vec![FilterValue::MultiSelect {
+						id: "type".into(),
+						included: vec!["Manga".into()],
+						excluded: Vec::new(),
+					}]),
+				},
+				FilterItem {
+					title: "From China".into(),
+					values: Some(vec![FilterValue::MultiSelect {
+						id: "type".into(),
+						included: vec!["Manhua".into()],
+						excluded: Vec::new(),
+					}]),
+				},
+			]),
+		});
+
+		for (title, id, query, ranked) in [
+			("New Season", "new_season", "sort=created_at", false),
+			("Most Liked", "most_liked", "sort=likes", false),
+			(
+				"Best Ongoings",
+				"best_ongoing",
+				"sort=rating&status=Ongoing",
+				false,
+			),
+			("In the Trend", "trend", "sort=by_views", false),
+			("Popular Today", "popular_today", "sort=votes", true),
+		] {
+			push_scroller(&mut components, title, id, query, ranked);
 		}
+
+		let genres = [
+			"Action",
+			"Adventure",
+			"Comedy",
+			"Drama",
+			"Fantasy",
+			"Historical",
+			"Horror",
+			"Josei",
+			"Martial Arts",
+			"Mystery",
+			"Psychological",
+			"Romance",
+			"School Life",
+			"Sci-Fi",
+			"Seinen",
+			"Shoujo",
+			"Shounen",
+			"Slice of Life",
+			"Sports",
+			"Supernatural",
+			"Tragedy",
+		];
+		components.push(HomeComponent {
+			title: Some("Genres".into()),
+			subtitle: None,
+			value: HomeComponentValue::Filters(
+				genres
+					.into_iter()
+					.map(|genre| FilterItem {
+						title: genre.into(),
+						values: Some(vec![FilterValue::MultiSelect {
+							id: "genre".into(),
+							included: vec![genre.into()],
+							excluded: Vec::new(),
+						}]),
+					})
+					.collect(),
+			),
+		});
 
 		Ok(HomeLayout { components })
 	}
@@ -443,11 +544,18 @@ impl Home for OManga {
 
 impl ListingProvider for OManga {
 	fn get_manga_list(&self, listing: Listing, page: i32) -> Result<MangaPageResult> {
-		let sort = match listing.id.as_str() {
-			"real_views" | "updated_at" | "created_at" | "rating" => listing.id.as_str(),
+		let query = match listing.id.as_str() {
+			"real_views" => "sort=real_views",
+			"updated_at" => "sort=updated_at",
+			"created_at" | "new_season" => "sort=created_at",
+			"rating" => "sort=rating",
+			"most_liked" => "sort=likes",
+			"best_ongoing" => "sort=rating&status=Ongoing",
+			"trend" => "sort=by_views",
+			"popular_today" => "sort=votes",
 			_ => bail!("Unknown listing"),
 		};
-		catalog_page(sort, page)
+		catalog_page_query(query, page)
 	}
 }
 

@@ -2,12 +2,14 @@
 	"info": {
 		"id": "en.valirscans",
 		"name": "ValirScans",
-		"version": 1,
+		"version": 2,
 		"url": "https://valirscans.org",
 		"contentRating": 1,
 		"languages": ["en"]
 	},
 	"listings": [
-		{ "id": "browse", "name": "All Series" }
+		{ "id": "browse", "name": "All Series" },
+		{ "id": "browse_comics", "name": "Comics" },
+		{ "id": "browse_novels", "name": "Novels" }
 	]
 }

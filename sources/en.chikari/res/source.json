@@ -2,7 +2,7 @@
 	"info": {
 		"id": "en.chikari",
 		"name": "Chikari",
-		"version": 2,
+		"version": 3,
 		"url": "https://chikari.moe",
 		"contentRating": 1,
 		"languages": ["en"]
@@ -34,6 +34,54 @@
 		{
 			"id": "most_bookmarked",
 			"name": "Most Bookmarked"
+		},
+		{
+			"id": "trending_day",
+			"name": "Trending Today"
+		},
+		{
+			"id": "trending_week",
+			"name": "Trending This Week"
+		},
+		{
+			"id": "trending_month",
+			"name": "Trending This Month"
+		},
+		{
+			"id": "bookmarked_day",
+			"name": "Bookmarked Today"
+		},
+		{
+			"id": "bookmarked_week",
+			"name": "Bookmarked This Week"
+		},
+		{
+			"id": "bookmarked_month",
+			"name": "Bookmarked This Month"
+		},
+		{
+			"id": "popular_manga",
+			"name": "Popular Manga"
+		},
+		{
+			"id": "popular_manhwa",
+			"name": "Popular Manhwa"
+		},
+		{
+			"id": "popular_manhua",
+			"name": "Popular Manhua"
+		},
+		{
+			"id": "top_manga",
+			"name": "Top Manga"
+		},
+		{
+			"id": "top_manhwa",
+			"name": "Top Manhwa"
+		},
+		{
+			"id": "top_manhua",
+			"name": "Top Manhua"
 		}
 	]
 }

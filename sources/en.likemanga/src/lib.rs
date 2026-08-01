@@ -1,8 +1,9 @@
 #![no_std]
 use aidoku::{
-	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterValue, Home, HomeComponent,
-	HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider, Manga,
-	MangaPageResult, MangaStatus, MangaWithChapter, Page, PageContent, PageContext, Result, Source,
+	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterItem, FilterValue, Home,
+	HomeComponent, HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider,
+	Manga, MangaPageResult, MangaStatus, MangaWithChapter, Page, PageContent, PageContext, Result,
+	Source,
 	alloc::{String, Vec, string::ToString, vec},
 	helpers::uri::QueryParameters,
 	imports::html::{Document, Element, Html},
@@ -134,6 +135,34 @@ fn parse_cards(doc: &Document) -> Vec<(Manga, Option<(String, String)>)> {
 		seen.push(key.clone());
 
 		let cover = card.select_first("img").and_then(|img| img_from(&img));
+		let tooltip = card
+			.select_first("img[data-jtip]")
+			.and_then(|img| img.attr("data-jtip"))
+			.and_then(|selector| doc.select_first(&selector));
+		let description = tooltip
+			.as_ref()
+			.and_then(|tip| tip.select_first(".box_text"))
+			.and_then(|text| text.text())
+			.map(|text| clean(&text))
+			.filter(|text| !text.is_empty());
+		let mut genres: Vec<String> = Vec::new();
+		let mut status = MangaStatus::Unknown;
+		if let Some(tip) = tooltip
+			&& let Some(rows) = tip.select(".message_main p")
+		{
+			for row in rows {
+				let text = row.text().map(|text| clean(&text)).unwrap_or_default();
+				if let Some(value) = text.strip_prefix("Genres:") {
+					genres = value
+						.split(',')
+						.map(|genre| genre.trim().to_string())
+						.filter(|genre| !genre.is_empty())
+						.collect();
+				} else if let Some(value) = text.strip_prefix("Status:") {
+					status = status_from(value.trim());
+				}
+			}
+		}
 		let latest = card.select_first(".list-group-item a").and_then(|a| {
 			let chapter_href = a.attr("href").unwrap_or_default();
 			let chapter_key = path_of(&chapter_href);
@@ -146,6 +175,10 @@ fn parse_cards(doc: &Document) -> Vec<(Manga, Option<(String, String)>)> {
 				key,
 				title,
 				cover,
+				description,
+				status,
+				content_rating: content_rating_for(&genres),
+				tags: (!genres.is_empty()).then_some(genres),
 				..Default::default()
 			},
 			latest,
@@ -164,6 +197,54 @@ fn fetch_cards(url: &str) -> Result<MangaPageResult> {
 		entries,
 		has_next_page,
 	})
+}
+
+fn manga_link(manga: Manga) -> Link {
+	Link {
+		title: manga.title.clone(),
+		subtitle: manga.tags.as_ref().map(|tags| tags.join(" · ")),
+		image_url: manga.cover.clone(),
+		value: Some(LinkValue::Manga(manga)),
+	}
+}
+
+fn parse_new_manga(doc: &Document) -> Vec<Link> {
+	let mut links = Vec::new();
+	let mut seen: Vec<String> = Vec::new();
+	let Some(items) = doc.select(".items-slide .item") else {
+		return links;
+	};
+	for item in items {
+		let Some(link) = item.select_first(".slide-caption h3 a") else {
+			continue;
+		};
+		let href = link.attr("href").unwrap_or_default();
+		let key = path_of(&href);
+		let title = link.text().map(|text| clean(&text)).unwrap_or_default();
+		if key.is_empty() || title.is_empty() || seen.iter().any(|value| value == &key) {
+			continue;
+		}
+		seen.push(key.clone());
+		let subtitle = item
+			.select_first(".slide-caption > a")
+			.and_then(|chapter| chapter.text())
+			.map(|text| clean(&text))
+			.filter(|text| !text.is_empty());
+		let manga = Manga {
+			key,
+			title: title.clone(),
+			cover: item.select_first("img").and_then(|img| img_from(&img)),
+			content_rating: ContentRating::Safe,
+			..Default::default()
+		};
+		links.push(Link {
+			title,
+			subtitle,
+			image_url: manga.cover.clone(),
+			value: Some(LinkValue::Manga(manga)),
+		});
+	}
+	links
 }
 
 fn search_url(
@@ -364,7 +445,6 @@ impl Source for LikeManga {
 			if rows.is_empty() {
 				bail!("No chapters found");
 			}
-			rows.reverse();
 			manga.chapters = Some(rows);
 		}
 
@@ -486,22 +566,43 @@ impl Home for LikeManga {
 			.header("Referer", &format!("{BASE_URL}/"))
 			.html()?;
 
-		let latest = parse_cards(&doc);
-		if !latest.is_empty() {
-			let entries: Vec<Manga> = latest
-				.iter()
-				.take(10)
-				.map(|(manga, _)| manga.clone())
+		if let Ok(result) = fetch_cards(&search_url("", "follow", "", "", &[], 1)) {
+			let entries: Vec<Manga> = result
+				.entries
+				.into_iter()
+				.filter(|manga| manga.description.is_some())
+				.take(8)
 				.collect();
+			if !entries.is_empty() {
+				components.push(HomeComponent {
+					title: Some("Most Followed".into()),
+					subtitle: None,
+					value: HomeComponentValue::BigScroller {
+						entries,
+						auto_scroll_interval: Some(6.0),
+					},
+				});
+			}
+		}
+
+		let new_manga = parse_new_manga(&doc);
+		if !new_manga.is_empty() {
 			components.push(HomeComponent {
-				title: Some("Latest Updates".into()),
+				title: Some("New Manga".into()),
 				subtitle: None,
-				value: HomeComponentValue::BigScroller {
-					entries,
-					auto_scroll_interval: Some(6.0),
+				value: HomeComponentValue::Scroller {
+					entries: new_manga,
+					listing: Some(Listing {
+						id: "lastest-manga".into(),
+						name: "Newest".into(),
+						..Default::default()
+					}),
 				},
 			});
+		}
 
+		let latest = parse_cards(&doc);
+		if !latest.is_empty() {
 			let chapter_entries: Vec<MangaWithChapter> = latest
 				.into_iter()
 				.filter_map(|(manga, latest)| {
@@ -520,7 +621,7 @@ impl Home for LikeManga {
 				.collect();
 			if !chapter_entries.is_empty() {
 				components.push(HomeComponent {
-					title: Some("New Chapters".into()),
+					title: Some("Latest Releases".into()),
 					subtitle: None,
 					value: HomeComponentValue::MangaChapterList {
 						page_size: None,
@@ -535,45 +636,55 @@ impl Home for LikeManga {
 			}
 		}
 
-		for (title, id, ranked) in [
-			("Popular Today", "top-day", false),
-			("Popular This Week", "top-week", false),
-			("Most Viewed", "top-manga", true),
-		] {
-			let Ok(result) = fetch_cards(&search_url("", id, "", "", &[], 1)) else {
-				continue;
-			};
-			let entries: Vec<Link> = result
-				.entries
-				.into_iter()
-				.map(|manga| Link {
-					title: manga.title.clone(),
+		if let Ok(result) = fetch_cards(&format!("{BASE_URL}/hot/")) {
+			let entries: Vec<Link> = result.entries.into_iter().map(manga_link).collect();
+			if !entries.is_empty() {
+				components.push(HomeComponent {
+					title: Some("Hot".into()),
 					subtitle: None,
-					image_url: manga.cover.clone(),
-					value: Some(LinkValue::Manga(manga)),
-				})
-				.collect();
-			if entries.is_empty() {
-				continue;
-			}
-			let listing = Some(Listing {
-				id: id.into(),
-				name: title.into(),
-				..Default::default()
-			});
-			components.push(HomeComponent {
-				title: Some(title.into()),
-				subtitle: None,
-				value: if ranked {
-					HomeComponentValue::MangaList {
-						ranking: true,
-						page_size: Some(10),
+					value: HomeComponentValue::Scroller {
 						entries,
-						listing,
-					}
-				} else {
-					HomeComponentValue::Scroller { entries, listing }
-				},
+						listing: Some(Listing {
+							id: "hot".into(),
+							name: "Hot".into(),
+							..Default::default()
+						}),
+					},
+				});
+			}
+		}
+
+		let mut seen: Vec<String> = Vec::new();
+		let genres: Vec<FilterItem> = doc
+			.select("a[href*='/genres/']")
+			.map(|items| {
+				items
+					.filter_map(|link| {
+						let href = link.attr("href")?;
+						let genre = href.split("/genres/").nth(1)?.split('/').next()?;
+						let title = link.text().map(|text| clean(&text)).unwrap_or_default();
+						if genre.is_empty() || title.is_empty() || seen.iter().any(|id| id == genre)
+						{
+							return None;
+						}
+						seen.push(genre.into());
+						Some(FilterItem {
+							title,
+							values: Some(vec![FilterValue::MultiSelect {
+								id: "genres".into(),
+								included: vec![genre.into()],
+								excluded: Vec::new(),
+							}]),
+						})
+					})
+					.collect()
+			})
+			.unwrap_or_default();
+		if !genres.is_empty() {
+			components.push(HomeComponent {
+				title: Some("Genres".into()),
+				subtitle: None,
+				value: HomeComponentValue::Filters(genres),
 			});
 		}
 
@@ -586,6 +697,7 @@ impl ListingProvider for LikeManga {
 		let sort = match listing.id.as_str() {
 			"top-manga" | "top-day" | "top-week" | "top-month" | "lastest-chap"
 			| "lastest-manga" | "follow" => listing.id.as_str(),
+			"hot" => return fetch_cards(&format!("{BASE_URL}/hot/")),
 			_ => bail!("Unknown listing"),
 		};
 		fetch_cards(&search_url("", sort, "", "", &[], page.max(1)))

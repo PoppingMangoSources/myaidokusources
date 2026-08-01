@@ -1,7 +1,7 @@
 #![no_std]
 use aidoku::{
 	Chapter, DeepLinkHandler, DeepLinkResult, FilterValue, Home, HomeLayout, ImageRequestProvider,
-	Manga, MangaPageResult, Page, PageContext, Result, Source,
+	Listing, ListingProvider, Manga, MangaPageResult, Page, PageContext, Result, Source,
 	alloc::{String, Vec, borrow::Cow},
 	imports::net::Request,
 };
@@ -130,6 +130,12 @@ impl<T: Impl> Source for MangaThemesia<T> {
 impl<T: Impl> ImageRequestProvider for MangaThemesia<T> {
 	fn get_image_request(&self, url: String, context: Option<PageContext>) -> Result<Request> {
 		self.inner.get_image_request(&self.params, url, context)
+	}
+}
+
+impl<T: Impl> ListingProvider for MangaThemesia<T> {
+	fn get_manga_list(&self, listing: Listing, page: i32) -> Result<MangaPageResult> {
+		self.inner.get_manga_list(&self.params, listing, page)
 	}
 }
 

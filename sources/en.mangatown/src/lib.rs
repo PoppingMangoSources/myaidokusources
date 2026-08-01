@@ -251,6 +251,55 @@ fn fetch_list(url: &str) -> Result<MangaPageResult> {
 	})
 }
 
+fn directory_url(page: i32, demographic: &str, genre: &str, status: &str, sort: &str) -> String {
+	let mut url = format!(
+		"{BASE_URL}/directory/{}-{}-0-{}-0-0/{}.htm",
+		if demographic.is_empty() {
+			"0"
+		} else {
+			demographic
+		},
+		if genre.is_empty() { "0" } else { genre },
+		if status.is_empty() { "0" } else { status },
+		page.max(1),
+	);
+	if !sort.is_empty() {
+		url.push('?');
+		url.push_str(sort);
+	}
+	url
+}
+
+fn hot_url(page: i32, demographic: &str, sort: &str) -> String {
+	let mut url = if demographic.is_empty() {
+		format!("{BASE_URL}/hot/{}.htm", page.max(1))
+	} else {
+		format!("{BASE_URL}/hot/{demographic}/{}.htm", page.max(1))
+	};
+	if !sort.is_empty() {
+		url.push('?');
+		url.push_str(sort);
+	}
+	url
+}
+
+fn links_from(url: &str) -> Vec<Link> {
+	fetch_list(url)
+		.map(|result| {
+			result
+				.entries
+				.into_iter()
+				.map(|manga| Link {
+					title: manga.title.clone(),
+					subtitle: manga.tags.as_ref().map(|tags| tags.join(" · ")),
+					image_url: manga.cover.clone(),
+					value: Some(LinkValue::Manga(manga)),
+				})
+				.collect()
+		})
+		.unwrap_or_default()
+}
+
 struct MangaTown;
 
 impl Source for MangaTown {
@@ -594,15 +643,19 @@ impl Home for MangaTown {
 	fn get_home(&self) -> Result<HomeLayout> {
 		let mut components: Vec<HomeComponent> = Vec::new();
 
-		if let Ok(doc) = Request::get(format!("{BASE_URL}/directory/0-0-0-0-0-0/1.htm"))?.html() {
+		if let Ok(doc) = Request::get(format!("{BASE_URL}/featured/"))?.html() {
 			let entries: Vec<Manga> = parse_list(&doc)
 				.into_iter()
-				.take(15)
-				.map(|i| i.manga)
+				.take(8)
+				.map(|item| {
+					let manga = item.manga;
+					self.get_manga_update(manga.clone(), true, false)
+						.unwrap_or(manga)
+				})
 				.collect();
 			if !entries.is_empty() {
 				components.push(HomeComponent {
-					title: Some("Popular".into()),
+					title: Some("Featured Manga".into()),
 					subtitle: None,
 					value: HomeComponentValue::BigScroller {
 						entries,
@@ -612,10 +665,25 @@ impl Home for MangaTown {
 			}
 		}
 
-		if let Ok(doc) = Request::get(format!(
-			"{BASE_URL}/directory/0-0-0-0-0-0/1.htm?last_chapter_time.za"
-		))?
-		.html()
+		let hot = links_from(&hot_url(1, "", ""));
+		if !hot.is_empty() {
+			components.push(HomeComponent {
+				title: Some("Hot Manga".into()),
+				subtitle: None,
+				value: HomeComponentValue::MangaList {
+					ranking: true,
+					page_size: Some(10),
+					entries: hot,
+					listing: Some(Listing {
+						id: "hot_total".into(),
+						name: "Hot Manga".into(),
+						..Default::default()
+					}),
+				},
+			});
+		}
+
+		if let Ok(doc) = Request::get(directory_url(1, "", "", "", "last_chapter_time.za"))?.html()
 		{
 			let entries: Vec<MangaWithChapter> = parse_list(&doc)
 				.into_iter()
@@ -648,36 +716,93 @@ impl Home for MangaTown {
 			}
 		}
 
-		if let Ok(doc) =
-			Request::get(format!("{BASE_URL}/directory/0-0-0-0-0-0/1.htm?rating.za"))?.html()
-		{
-			let entries: Vec<Link> = parse_list(&doc)
-				.into_iter()
-				.map(|item| {
-					let manga = item.manga;
-					Link {
-						title: manga.title.clone(),
+		for (title, id, demographic, genre, status, sort) in [
+			("New Manga Releases", "new", "", "", "new", ""),
+			(
+				"Romance Releases",
+				"romance",
+				"",
+				"romance",
+				"",
+				"last_chapter_time.za",
+			),
+			(
+				"Shounen Releases",
+				"shounen",
+				"shounen",
+				"",
+				"",
+				"last_chapter_time.za",
+			),
+			(
+				"Seinen Releases",
+				"seinen",
+				"seinen",
+				"",
+				"",
+				"last_chapter_time.za",
+			),
+			(
+				"Shoujo Releases",
+				"shoujo",
+				"shoujo",
+				"",
+				"",
+				"last_chapter_time.za",
+			),
+			("Josei Releases", "josei", "josei", "", "", ""),
+			("Yaoi Releases", "yaoi", "yaoi", "", "", ""),
+			(
+				"Shounen Ai Releases",
+				"shounen_ai",
+				"shounen_ai",
+				"",
+				"",
+				"",
+			),
+		] {
+			let entries = links_from(&directory_url(1, demographic, genre, status, sort));
+			if entries.is_empty() {
+				continue;
+			}
+			components.push(HomeComponent {
+				title: Some(title.into()),
+				subtitle: None,
+				value: HomeComponentValue::Scroller {
+					entries,
+					listing: Some(Listing {
+						id: id.into(),
+						name: title.into(),
+						..Default::default()
+					}),
+				},
+			});
+
+			let top = match demographic {
+				"shounen" => Some(("Top Shounen", "top_shounen")),
+				"seinen" => Some(("Top Seinen", "top_seinen")),
+				"shoujo" => Some(("Top Shoujo", "top_shoujo")),
+				"yaoi" => Some(("Top Yaoi", "top_yaoi")),
+				_ => None,
+			};
+			if let Some((top_title, top_id)) = top {
+				let entries = links_from(&hot_url(1, demographic, ""));
+				if !entries.is_empty() {
+					components.push(HomeComponent {
+						title: Some(top_title.into()),
 						subtitle: None,
-						image_url: manga.cover.clone(),
-						value: Some(LinkValue::Manga(manga)),
-					}
-				})
-				.collect();
-			if !entries.is_empty() {
-				components.push(HomeComponent {
-					title: Some("Top Rated".into()),
-					subtitle: None,
-					value: HomeComponentValue::MangaList {
-						ranking: true,
-						page_size: Some(10),
-						entries,
-						listing: Some(Listing {
-							id: "rating".into(),
-							name: "Top Rated".into(),
-							..Default::default()
-						}),
-					},
-				});
+						value: HomeComponentValue::MangaList {
+							ranking: true,
+							page_size: Some(10),
+							entries,
+							listing: Some(Listing {
+								id: top_id.into(),
+								name: top_title.into(),
+								..Default::default()
+							}),
+						},
+					});
+				}
 			}
 		}
 
@@ -704,21 +829,30 @@ impl Home for MangaTown {
 
 impl ListingProvider for MangaTown {
 	fn get_manga_list(&self, listing: Listing, page: i32) -> Result<MangaPageResult> {
-		let token = match listing.id.as_str() {
-			"views" => "",
-			"latest" => "last_chapter_time.za",
-			"rating" => "rating.za",
+		let page = page.max(1);
+		let url = match listing.id.as_str() {
+			"views" => directory_url(page, "", "", "", ""),
+			"latest" => directory_url(page, "", "", "", "last_chapter_time.za"),
+			"rating" => directory_url(page, "", "", "", "rating.za"),
+			"new" => directory_url(page, "", "", "new", ""),
+			"romance" => directory_url(page, "", "romance", "", "last_chapter_time.za"),
+			"shounen" => directory_url(page, "shounen", "", "", "last_chapter_time.za"),
+			"seinen" => directory_url(page, "seinen", "", "", "last_chapter_time.za"),
+			"shoujo" => directory_url(page, "shoujo", "", "", "last_chapter_time.za"),
+			"josei" => directory_url(page, "josei", "", "", ""),
+			"yaoi" => directory_url(page, "yaoi", "", "", ""),
+			"shounen_ai" => directory_url(page, "shounen_ai", "", "", ""),
+			"hot_total" => hot_url(page, "", ""),
+			"hot_month" => hot_url(page, "", "mviews.za"),
+			"hot_week" => hot_url(page, "", "wviews.za"),
+			"hot_today" => hot_url(page, "", "tviews.za"),
+			"top_shounen" => hot_url(page, "shounen", ""),
+			"top_seinen" => hot_url(page, "seinen", ""),
+			"top_shoujo" => hot_url(page, "shoujo", ""),
+			"top_yaoi" => hot_url(page, "yaoi", ""),
 			_ => bail!("Unknown listing"),
 		};
-		let page = page.max(1);
-		let suffix = if token.is_empty() {
-			String::new()
-		} else {
-			format!("?{token}")
-		};
-		fetch_list(&format!(
-			"{BASE_URL}/directory/0-0-0-0-0-0/{page}.htm{suffix}"
-		))
+		fetch_list(&url)
 	}
 }
 

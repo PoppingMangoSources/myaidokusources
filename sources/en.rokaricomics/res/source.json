@@ -2,9 +2,17 @@
 	"info": {
 		"id": "en.rokaricomics",
 		"name": "RokariComics",
-		"version": 1,
+		"version": 2,
 		"url": "https://rokaricomics.com",
 		"contentRating": 1,
 		"languages": ["en"]
-	}
+	},
+	"listings": [
+		{ "id": "popular_today", "name": "Popular Today" },
+		{ "id": "popular_week", "name": "Popular This Week" },
+		{ "id": "popular_month", "name": "Popular This Month" },
+		{ "id": "popular_all", "name": "Popular All Time" },
+		{ "id": "latest", "name": "Latest Updates" },
+		{ "id": "recommendation", "name": "Recommendations" }
+	]
 }

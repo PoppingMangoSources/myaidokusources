@@ -2,9 +2,17 @@
 	"info": {
 		"id": "en.bunmanga",
 		"name": "BunManga",
-		"version": 2,
+		"version": 3,
 		"url": "https://bunmanga.com",
 		"contentRating": 2,
 		"languages": ["en"]
-	}
+	},
+	"listings": [
+		{ "id": "popular", "name": "Popular" },
+		{ "id": "top_daily", "name": "Top Daily" },
+		{ "id": "latest", "name": "Latest Updates" },
+		{ "id": "relevance", "name": "Relevance" },
+		{ "id": "top_rated", "name": "Top Rated" },
+		{ "id": "trending", "name": "Trending" }
+	]
 }

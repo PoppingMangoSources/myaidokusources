@@ -2,7 +2,7 @@
 	"info": {
 		"id": "en.mvlempyr",
 		"name": "MVLEMPYR",
-		"version": 1,
+		"version": 2,
 		"url": "https://www.mvlempyr.io",
 		"contentRating": 1,
 		"languages": ["en"]
@@ -12,10 +12,13 @@
 	},
 	"listings": [
 		{ "id": "popular", "name": "Popular" },
+		{ "id": "trending", "name": "Trending" },
+		{ "id": "recommended", "name": "Recommended" },
 		{ "id": "top_rated", "name": "Top Rated" },
 		{ "id": "most_reviewed", "name": "Most Reviewed" },
 		{ "id": "new_arrivals", "name": "New Arrivals" },
 		{ "id": "completed", "name": "Completed" },
+		{ "id": "romance", "name": "Romance" },
 		{ "id": "latest", "name": "New Updates" }
 	]
 }

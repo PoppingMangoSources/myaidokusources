@@ -2,7 +2,7 @@
 	"info": {
 		"id": "en.mangatown",
 		"name": "MangaTown",
-		"version": 1,
+		"version": 2,
 		"url": "https://www.mangatown.com",
 		"contentRating": 1,
 		"languages": ["en"]
@@ -10,6 +10,22 @@
 	"listings": [
 		{ "id": "views", "name": "Popular" },
 		{ "id": "latest", "name": "Latest Updates" },
-		{ "id": "rating", "name": "Top Rated" }
+		{ "id": "rating", "name": "Top Rated" },
+		{ "id": "new", "name": "New Manga" },
+		{ "id": "romance", "name": "Romance" },
+		{ "id": "shounen", "name": "Shounen" },
+		{ "id": "seinen", "name": "Seinen" },
+		{ "id": "shoujo", "name": "Shoujo" },
+		{ "id": "josei", "name": "Josei" },
+		{ "id": "yaoi", "name": "Yaoi" },
+		{ "id": "shounen_ai", "name": "Shounen Ai" },
+		{ "id": "hot_total", "name": "Hot Manga" },
+		{ "id": "hot_today", "name": "Hot Today" },
+		{ "id": "hot_week", "name": "Hot This Week" },
+		{ "id": "hot_month", "name": "Hot This Month" },
+		{ "id": "top_shounen", "name": "Top Shounen" },
+		{ "id": "top_seinen", "name": "Top Seinen" },
+		{ "id": "top_shoujo", "name": "Top Shoujo" },
+		{ "id": "top_yaoi", "name": "Top Yaoi" }
 	]
 }

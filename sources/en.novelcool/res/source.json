@@ -2,7 +2,7 @@
 	"info": {
 		"id": "en.novelcool",
 		"name": "NovelCool",
-		"version": 2,
+		"version": 3,
 		"url": "https://www.novelcool.com",
 		"contentRating": 1,
 		"languages": ["en"]
@@ -10,6 +10,13 @@
 	"listings": [
 		{ "id": "hot", "name": "Popular" },
 		{ "id": "latest", "name": "Latest Updates" },
-		{ "id": "new_book", "name": "Newest" }
+		{ "id": "new_book", "name": "Newest" },
+		{ "id": "hot_manga", "name": "Popular Manga" },
+		{ "id": "hot_novel", "name": "Popular Novels" },
+		{ "id": "latest_manga", "name": "Latest Manga" },
+		{ "id": "latest_novel", "name": "Latest Novels" },
+		{ "id": "new_book_manga", "name": "New Manga" },
+		{ "id": "new_book_novel", "name": "New Novels" },
+		{ "id": "completed", "name": "Completed" }
 	]
 }

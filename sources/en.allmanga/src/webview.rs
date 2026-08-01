@@ -46,7 +46,28 @@ fn capture_script() -> String {
 			return parsed;
 		}});
 	}};
-	setTimeout(() => finish(''), 25000);
+	const originalFetch = window.fetch;
+	if (originalFetch) window.fetch = function (...args) {{
+		return originalFetch.apply(this, args).then((response) => {{
+			try {{
+				response.clone().text().then((raw) => {{
+					try {{ capture(originalParse(raw), raw); }} catch (_) {{}}
+				}});
+			}} catch (_) {{}}
+			return response;
+		}});
+	}};
+	const originalOpen = XMLHttpRequest.prototype.open;
+	XMLHttpRequest.prototype.open = function (...args) {{
+		this.addEventListener('load', function () {{
+			try {{
+				const raw = this.responseText;
+				capture(originalParse(raw), raw);
+			}} catch (_) {{}}
+		}});
+		return originalOpen.apply(this, args);
+	}};
+	setTimeout(() => finish(''), 18000);
 }})()"
 	)
 }
@@ -74,25 +95,31 @@ pub fn page_urls_via_webview(manga_id: &str, chapter: &str) -> Result<Vec<String
 fn collect_from_mirror(host: &str, manga_id: &str, chapter: &str) -> Result<Vec<String>> {
 	let origin = format!("https://{host}");
 	let reader_url = format!("{origin}/manga/{manga_id}/chapter-{chapter}-sub");
-
 	let web_view = WebView::new();
 	let mut user_script = WebViewUserScript::new(capture_script());
 	user_script.at_document_end = false;
 	user_script.for_main_frame_only = true;
 	web_view.add_user_script(user_script)?;
-	web_view.load_blocking(
+	// `load` preserves WebView cookies and page navigation without the unbounded
+	// wait used by `load_blocking`; the poll below supplies the hard deadline.
+	web_view.load(
 		Request::get(&reader_url)?
 			.header("Referer", &format!("{origin}/"))
 			.header("Accept", "text/html,application/xhtml+xml,*/*;q=0.8"),
 	)?;
 
 	let mut result = String::new();
-	for _ in 0..30 {
-		result = web_view.eval(&format!(
-			"window['{RESULT_TOKEN}'].done ? window['{RESULT_TOKEN}'].data : '{WAIT_TOKEN}'"
-		))?;
-		if result != WAIT_TOKEN {
-			break;
+	for _ in 0..20 {
+		if let Ok(value) = web_view.eval(&format!(
+			"(() => {{
+				const state = window['{RESULT_TOKEN}'];
+				return state && state.done ? state.data : '{WAIT_TOKEN}';
+			}})()"
+		)) {
+			result = value;
+			if result != WAIT_TOKEN {
+				break;
+			}
 		}
 		sleep(1);
 	}

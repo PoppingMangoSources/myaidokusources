@@ -1,9 +1,9 @@
 #![no_std]
 use aidoku::{
-	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterValue, Home, HomeComponent,
-	HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider, Manga,
-	MangaPageResult, MangaStatus, Page, PageContent, PageContext, Result, Source,
-	alloc::{String, Vec, string::ToString},
+	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterItem, FilterValue, Home,
+	HomeComponent, HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider,
+	Manga, MangaPageResult, MangaStatus, Page, PageContent, PageContext, Result, Source,
+	alloc::{String, Vec, string::ToString, vec},
 	helpers::uri::QueryParameters,
 	imports::defaults::defaults_get,
 	imports::html::{Document, Element},
@@ -179,10 +179,20 @@ impl Source for VyManga {
 
 		let mut sort_index = 0;
 		let mut author = String::new();
+		let mut included_genres: Vec<String> = Vec::new();
+		let mut excluded_genres: Vec<String> = Vec::new();
 		for filter in filters {
 			match filter {
 				FilterValue::Sort { index, .. } => sort_index = index,
 				FilterValue::Text { id, value } if id == "author" => author = value,
+				FilterValue::MultiSelect {
+					id,
+					included,
+					excluded,
+				} if id == "genres" => {
+					included_genres = included;
+					excluded_genres = excluded;
+				}
 				_ => {}
 			}
 		}
@@ -194,6 +204,12 @@ impl Source for VyManga {
 		qs.push("author_po", Some("0"));
 		if !author.is_empty() {
 			qs.push("author", Some(&author));
+		}
+		for genre in &included_genres {
+			qs.push("genre[]", Some(genre));
+		}
+		for genre in &excluded_genres {
+			qs.push("exclude_genre[]", Some(genre));
 		}
 		let sort = match sort_index {
 			1 => Some("updated_at"),
@@ -379,16 +395,90 @@ impl Home for VyManga {
 	fn get_home(&self) -> Result<HomeLayout> {
 		let mut components: Vec<HomeComponent> = Vec::new();
 
+		if let Ok(doc) = Request::get(browse_url("viewed", 1))?.html() {
+			let entries: Vec<Manga> = parse_cards(&doc)
+				.into_iter()
+				.take(8)
+				.map(|manga| {
+					self.get_manga_update(manga.clone(), true, false)
+						.unwrap_or(manga)
+				})
+				.collect();
+			if !entries.is_empty() {
+				components.push(HomeComponent {
+					title: Some("Popular".into()),
+					subtitle: None,
+					value: HomeComponentValue::BigScroller {
+						entries,
+						auto_scroll_interval: Some(6.0),
+					},
+				});
+			}
+		}
+
 		if let Ok(doc) = Request::get(browse_url("updated_at", 1))?.html() {
-			let entries: Vec<Manga> = parse_cards(&doc).into_iter().take(15).collect();
+			let entries: Vec<Link> = parse_cards(&doc)
+				.into_iter()
+				.map(|manga| Link {
+					title: manga.title.clone(),
+					subtitle: None,
+					image_url: manga.cover.clone(),
+					value: Some(LinkValue::Manga(manga)),
+				})
+				.collect();
 			if !entries.is_empty() {
 				components.push(HomeComponent {
 					title: Some("Latest Updated".into()),
 					subtitle: None,
-					value: HomeComponentValue::BigScroller {
+					value: HomeComponentValue::Scroller {
 						entries,
-						auto_scroll_interval: Some(5.0),
+						listing: Some(Listing {
+							id: "updated_at".into(),
+							name: "Latest Updated".into(),
+							..Default::default()
+						}),
 					},
+				});
+			}
+		}
+
+		if let Ok(doc) = Request::get(base_url())?.html() {
+			let mut seen: Vec<String> = Vec::new();
+			let genres: Vec<FilterItem> = doc
+				.select("a[href*='/genre/']")
+				.map(|items| {
+					items
+						.filter_map(|link| {
+							let href = link.attr("href")?;
+							let slug = href
+								.split("/genre/")
+								.nth(1)?
+								.split(['/', '?', '#'])
+								.next()?;
+							let title = link.text()?.trim().to_string();
+							if slug.is_empty()
+								|| title.is_empty() || seen.iter().any(|id| id == slug)
+							{
+								return None;
+							}
+							seen.push(slug.into());
+							Some(FilterItem {
+								title,
+								values: Some(vec![FilterValue::MultiSelect {
+									id: "genres".into(),
+									included: vec![slug.into()],
+									excluded: Vec::new(),
+								}]),
+							})
+						})
+						.collect()
+				})
+				.unwrap_or_default();
+			if !genres.is_empty() {
+				components.push(HomeComponent {
+					title: Some("Genres".into()),
+					subtitle: None,
+					value: HomeComponentValue::Filters(genres),
 				});
 			}
 		}
@@ -436,6 +526,7 @@ impl Home for VyManga {
 impl ListingProvider for VyManga {
 	fn get_manga_list(&self, listing: Listing, page: i32) -> Result<MangaPageResult> {
 		let sort = match listing.id.as_str() {
+			"viewed" => "viewed",
 			"updated_at" => "updated_at",
 			"scored" => "scored",
 			"created_at" => "created_at",

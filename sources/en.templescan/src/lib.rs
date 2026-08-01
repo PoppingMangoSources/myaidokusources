@@ -458,28 +458,37 @@ impl Home for TempleScan {
 			.header("Referer", &format!("{DOMAIN}/"))
 			.send() && let Ok(banners) = response.get_json_owned::<Vec<FeaturedEntry>>()
 		{
-			let entries: Vec<Manga> = banners
+			let links: Vec<Link> = banners
 				.into_iter()
-				.filter(|entry| !entry.series_slug.is_empty())
-				.map(|entry| Manga {
-					key: entry.series_slug,
-					title: entry.title,
-					cover: image_url(entry.banner.as_deref())
-						.or_else(|| image_url(entry.thumbnail.as_deref())),
-					description: entry.description.as_deref().map(strip_html),
-					authors: entry.author.map(|a| vec![a]),
-					content_rating: ContentRating::Safe,
-					viewer: Viewer::Webtoon,
-					..Default::default()
+				.filter_map(|entry| {
+					let image = image_url(entry.banner.as_deref())?;
+					let manga = Manga {
+						key: entry.series_slug,
+						title: entry.title,
+						cover: image_url(entry.thumbnail.as_deref()),
+						description: entry.description.as_deref().map(strip_html),
+						authors: entry.author.map(|a| vec![a]),
+						content_rating: ContentRating::Safe,
+						viewer: Viewer::Webtoon,
+						..Default::default()
+					};
+					Some(Link {
+						title: manga.title.clone(),
+						subtitle: manga.description.clone(),
+						image_url: Some(image),
+						value: Some(LinkValue::Manga(manga)),
+					})
 				})
 				.collect();
-			if !entries.is_empty() {
+			if !links.is_empty() {
 				components.push(HomeComponent {
 					title: Some("Featured".into()),
 					subtitle: None,
-					value: HomeComponentValue::BigScroller {
-						entries,
+					value: HomeComponentValue::ImageScroller {
+						links,
 						auto_scroll_interval: Some(6.0),
+						width: None,
+						height: None,
 					},
 				});
 			}

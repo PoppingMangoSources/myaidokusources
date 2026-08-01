@@ -84,11 +84,24 @@ impl Impl for RinkoComics {
 		let html = Request::get(&params.base_url)?.html()?;
 		let mut components = Vec::new();
 
-		let featured: Vec<Manga> = html
+		let featured: Vec<aidoku::Link> = html
 			.select(".hero-slider .slide")
 			.map(|items| {
 				items
-					.filter_map(|item| card_manga(params, &item, "a", ".comic-title", "img"))
+					.filter_map(|item| {
+						let mut manga = card_manga(params, &item, "a", ".comic-title", "img")?;
+						let genres: Vec<String> = item
+							.select(".comic-genres .genre")
+							.map(|items| items.filter_map(|genre| genre.text()).collect())
+							.unwrap_or_default();
+						manga.tags = (!genres.is_empty()).then_some(genres.clone());
+						Some(aidoku::Link {
+							title: manga.title.clone(),
+							subtitle: (!genres.is_empty()).then(|| genres.join(" · ")),
+							image_url: manga.cover.clone(),
+							value: Some(aidoku::LinkValue::Manga(manga)),
+						})
+					})
 					.collect()
 			})
 			.unwrap_or_default();
@@ -96,9 +109,11 @@ impl Impl for RinkoComics {
 			components.push(HomeComponent {
 				title: Some("Featured".into()),
 				subtitle: None,
-				value: HomeComponentValue::BigScroller {
-					entries: featured,
+				value: HomeComponentValue::ImageScroller {
+					links: featured,
 					auto_scroll_interval: Some(6.0),
+					width: None,
+					height: None,
 				},
 			});
 		}
@@ -133,7 +148,7 @@ impl Impl for RinkoComics {
 			});
 		}
 
-		let pinned: Vec<aidoku::Link> = html
+		let pinned: Vec<Manga> = html
 			.select("a.pinned-comic-card")
 			.map(|items| {
 				items
@@ -146,7 +161,10 @@ impl Impl for RinkoComics {
 							".comic-thumbnail img",
 						)
 					})
-					.map(Into::into)
+					.map(|manga| {
+						self.get_manga_update(params, manga.clone(), true, false)
+							.unwrap_or(manga)
+					})
 					.collect()
 			})
 			.unwrap_or_default();
@@ -154,9 +172,9 @@ impl Impl for RinkoComics {
 			components.push(HomeComponent {
 				title: Some("Editor's Choice".into()),
 				subtitle: None,
-				value: HomeComponentValue::Scroller {
+				value: HomeComponentValue::BigScroller {
 					entries: pinned,
-					listing: None,
+					auto_scroll_interval: None,
 				},
 			});
 		}

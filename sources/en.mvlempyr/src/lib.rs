@@ -74,6 +74,19 @@ fn page_of(novels: Vec<Novel>, page: i32) -> MangaPageResult {
 	}
 }
 
+fn rich_entries(source: &Mvlempyr, novels: Vec<Novel>, limit: usize) -> Vec<Manga> {
+	novels
+		.into_iter()
+		.take(limit)
+		.map(Manga::from)
+		.map(|manga| {
+			source
+				.get_manga_update(manga.clone(), true, false)
+				.unwrap_or(manga)
+		})
+		.collect()
+}
+
 struct Mvlempyr;
 
 impl Source for Mvlempyr {
@@ -232,16 +245,37 @@ impl Home for Mvlempyr {
 			items.into_iter().take(count).collect()
 		};
 
-		let popular = take(Sort::Popular, 10);
+		let popular = take(Sort::Popular, 8);
 		if !popular.is_empty() {
 			components.push(HomeComponent {
 				title: Some("Popular".into()),
 				subtitle: None,
 				value: HomeComponentValue::BigScroller {
-					entries: popular.into_iter().map(Manga::from).collect(),
+					entries: rich_entries(self, popular, 8),
 					auto_scroll_interval: Some(6.0),
 				},
 			});
+		}
+
+		for (title, id, sort) in [
+			("Trending", "trending", Sort::MostReviewed),
+			("Recommended", "recommended", Sort::MostChapters),
+		] {
+			let entries: Vec<Link> = take(sort, 20).into_iter().map(Link::from).collect();
+			if !entries.is_empty() {
+				components.push(HomeComponent {
+					title: Some(title.into()),
+					subtitle: None,
+					value: HomeComponentValue::Scroller {
+						entries,
+						listing: Some(Listing {
+							id: id.into(),
+							name: title.into(),
+							..Default::default()
+						}),
+					},
+				});
+			}
 		}
 
 		let top_rated = take(Sort::TopRated, 20);
@@ -340,6 +374,35 @@ impl Home for Mvlempyr {
 			});
 		}
 
+		let romance: Vec<Link> = {
+			let mut items: Vec<Novel> = novels
+				.iter()
+				.filter(|novel| {
+					novel
+						.genres
+						.iter()
+						.any(|genre| genre.eq_ignore_ascii_case("romance"))
+				})
+				.cloned()
+				.collect();
+			Sort::Popular.apply(&mut items);
+			items.into_iter().take(20).map(Link::from).collect()
+		};
+		if !romance.is_empty() {
+			components.push(HomeComponent {
+				title: Some("Romance".into()),
+				subtitle: None,
+				value: HomeComponentValue::Scroller {
+					entries: romance,
+					listing: Some(Listing {
+						id: "romance".into(),
+						name: "Romance".into(),
+						..Default::default()
+					}),
+				},
+			});
+		}
+
 		let genre_items: Vec<FilterItem> = GENRES
 			.iter()
 			.map(|(id, title)| FilterItem {
@@ -401,8 +464,24 @@ impl ListingProvider for Mvlempyr {
 			return Ok(page_of(novels, page));
 		}
 
+		if listing.id == "romance" {
+			let mut novels: Vec<Novel> = catalogue()?
+				.into_iter()
+				.filter(|novel| {
+					novel
+						.genres
+						.iter()
+						.any(|genre| genre.eq_ignore_ascii_case("romance"))
+				})
+				.collect();
+			Sort::Popular.apply(&mut novels);
+			return Ok(page_of(novels, page));
+		}
+
 		let sort = match listing.id.as_str() {
 			"popular" => Sort::Popular,
+			"trending" => Sort::MostReviewed,
+			"recommended" => Sort::MostChapters,
 			"top_rated" => Sort::TopRated,
 			"most_reviewed" => Sort::MostReviewed,
 			"new_arrivals" => Sort::NewArrivals,

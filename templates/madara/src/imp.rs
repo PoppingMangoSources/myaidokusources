@@ -5,9 +5,9 @@ use crate::{
 	models::*,
 };
 use aidoku::{
-	Chapter, ContentRating, DeepLinkResult, Filter, FilterValue, HomeComponent, HomeLayout, Manga,
-	MangaPageResult, MangaStatus, MangaWithChapter, MultiSelectFilter, Page, PageContent,
-	PageContext, Result, Viewer,
+	Chapter, ContentRating, DeepLinkResult, Filter, FilterItem, FilterValue, HomeComponent,
+	HomeComponentValue, HomeLayout, Link, Listing, Manga, MangaPageResult, MangaStatus,
+	MangaWithChapter, MultiSelectFilter, Page, PageContent, PageContext, Result, Viewer,
 	alloc::{String, Vec, string::ToString, vec},
 	helpers::{element::ElementHelpers, string::StripPrefixOrSelf},
 	imports::{
@@ -370,11 +370,30 @@ pub trait Impl {
 
 	fn get_manga_list(
 		&self,
-		_params: &Params,
-		_listing: aidoku::Listing,
-		_page: i32,
+		params: &Params,
+		listing: Listing,
+		page: i32,
 	) -> Result<MangaPageResult> {
-		todo!()
+		let index = match listing.id.as_str() {
+			"relevance" => 0,
+			"latest" => 1,
+			"alphabet" => 2,
+			"top_rated" => 3,
+			"trending" => 4,
+			"top_daily" | "popular" => 5,
+			"new" => 6,
+			_ => bail!("Unknown listing"),
+		};
+		self.get_search_manga_list(
+			params,
+			None,
+			page,
+			vec![FilterValue::Sort {
+				id: "order".into(),
+				index,
+				ascending: false,
+			}],
+		)
 	}
 
 	fn get_home(&self, params: &Params) -> Result<HomeLayout> {
@@ -440,12 +459,20 @@ pub trait Impl {
 				.map(|els| els.filter_map(|el| parse_manga(&el)).collect::<Vec<_>>())
 				.unwrap_or_default();
 			if !items.is_empty() {
+				let items: Vec<Manga> = items
+					.into_iter()
+					.take(8)
+					.map(|manga| {
+						self.get_manga_update(params, manga.clone(), true, false)
+							.unwrap_or(manga)
+					})
+					.collect();
 				components.push(HomeComponent {
 					title,
 					subtitle: None,
-					value: aidoku::HomeComponentValue::Scroller {
-						entries: items.into_iter().map(|m| m.into()).collect(),
-						listing: None,
+					value: HomeComponentValue::BigScroller {
+						entries: items,
+						auto_scroll_interval: Some(6.0),
 					},
 				});
 			}
@@ -491,6 +518,84 @@ pub trait Impl {
 					},
 				});
 			}
+		}
+
+		for (title, id, index, ranked) in [
+			("Top Daily", "top_daily", 5, true),
+			("Relevance", "relevance", 0, false),
+			("Top Rated", "top_rated", 3, true),
+			("Trending", "trending", 4, false),
+		] {
+			let Ok(page) = self.get_search_manga_list(
+				params,
+				None,
+				1,
+				vec![FilterValue::Sort {
+					id: "order".into(),
+					index,
+					ascending: false,
+				}],
+			) else {
+				continue;
+			};
+			let entries: Vec<Link> = page.entries.into_iter().map(Into::into).collect();
+			if entries.is_empty() {
+				continue;
+			}
+			let listing = Some(Listing {
+				id: id.into(),
+				name: title.into(),
+				..Default::default()
+			});
+			components.push(HomeComponent {
+				title: Some(title.into()),
+				subtitle: None,
+				value: if ranked {
+					HomeComponentValue::MangaList {
+						ranking: true,
+						page_size: Some(10),
+						entries,
+						listing,
+					}
+				} else {
+					HomeComponentValue::Scroller { entries, listing }
+				},
+			});
+		}
+
+		let mut seen = Vec::new();
+		let genres: Vec<FilterItem> = html
+			.select("a[href*='/manga-genre/'], a[href*='/genre/']")
+			.map(|links| {
+				links
+					.filter_map(|link| {
+						let title = link.text()?.trim().to_string();
+						let href = link.attr("href")?;
+						let slug = href.trim_end_matches('/').rsplit('/').next()?.to_string();
+						if title.is_empty() || slug.is_empty() || seen.iter().any(|id| id == &slug)
+						{
+							return None;
+						}
+						seen.push(slug.clone());
+						Some(FilterItem {
+							title,
+							values: Some(vec![FilterValue::MultiSelect {
+								id: "genre[]".into(),
+								included: vec![slug],
+								excluded: Vec::new(),
+							}]),
+						})
+					})
+					.take(40)
+					.collect()
+			})
+			.unwrap_or_default();
+		if !genres.is_empty() {
+			components.push(HomeComponent {
+				title: Some("Genres".into()),
+				subtitle: None,
+				value: HomeComponentValue::Filters(genres),
+			});
 		}
 
 		Ok(HomeLayout { components })

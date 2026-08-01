@@ -15,7 +15,7 @@ pub struct ApiResponse<T> {
 	pub info: Option<T>,
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Clone, Deserialize, Default)]
 pub struct Book {
 	#[serde(default)]
 	pub id: String,

@@ -192,6 +192,177 @@ fn browse_merged(order: &str, content_type: &str, page: i32) -> Result<MangaPage
 	})
 }
 
+fn completed_books(page: i32) -> Result<Vec<Book>> {
+	let path = if page <= 1 {
+		"/category/completed.html".to_string()
+	} else {
+		format!("/category/completed_{page}.html")
+	};
+	let html = Request::get(format!("{DOMAIN}{path}"))?
+		.header("User-Agent", USER_AGENT)
+		.html()?;
+	let mut seen = Vec::new();
+	Ok(html
+		.select(".book-list .book-item")
+		.map(|items| {
+			items
+				.filter_map(|item| {
+					let link = item.select_first("a[href*='/novel/']")?;
+					let href = link.attr("abs:href").or_else(|| link.attr("href"))?;
+					let key = item
+						.attr("book_id")
+						.or_else(|| {
+							item.select_first("[book_id]")
+								.and_then(|element| element.attr("book_id"))
+						})
+						.or_else(|| {
+							href.split_once("/id-")
+								.map(|(_, rest)| rest.split('.').next().unwrap_or_default().into())
+						})?;
+					if key.is_empty() || seen.iter().any(|value| value == &key) {
+						return None;
+					}
+					seen.push(key.clone());
+					let image = item.select_first(".book-pic img, img")?;
+					let cover = image
+						.attr("lazy_url")
+						.or_else(|| image.attr("data-lazy-src"))
+						.or_else(|| image.attr("data-src"))
+						.or_else(|| image.attr("data-cfsrc"))
+						.or_else(|| image.attr("src"))?;
+					let title = item
+						.select_first(".book-pic")
+						.and_then(|element| element.attr("title"))
+						.or_else(|| {
+							item.select_first(".book-name")
+								.and_then(|element| element.attr("title").or_else(|| element.text()))
+						})
+						.or_else(|| image.attr("alt"))
+						.or_else(|| link.attr("title"))?;
+					let kind = item
+						.select_first("[class*='book-type-']")
+						.and_then(|element| element.attr("class"))
+						.or_else(|| {
+							item.select_first(".book-type, .book-list-type")
+								.and_then(|element| element.text())
+						})
+						.unwrap_or_default()
+						.to_lowercase();
+					let genres: Vec<String> = item
+						.select(
+							".book-cate a, .book-data-info a[href*='/category/'], .book-info a[href*='/category/']",
+						)
+						.map(|items| {
+							items
+								.filter_map(|genre| genre.text())
+								.map(|genre| genre.trim().to_string())
+								.filter(|genre| !genre.is_empty())
+								.collect()
+						})
+						.unwrap_or_default();
+					Some(Book {
+						id: key,
+						url: Some(href),
+						name: title.trim().to_string(),
+						intro: item
+							.select_first(".book-desc, .book-summary, .book-intro")
+							.and_then(|element| element.text()),
+						completed: Some("YES".into()),
+						category_list: (!genres.is_empty()).then_some(genres),
+						is_novel: Some(if kind.contains("novel") { "1" } else { "0" }.into()),
+						cover,
+						..Default::default()
+					})
+				})
+				.collect()
+		})
+		.unwrap_or_default())
+}
+
+fn completed_page(content_type: &str, page: i32) -> Result<MangaPageResult> {
+	let mut books = completed_books(page)?;
+	books.retain(|book| match content_type {
+		"novel" => book.is_novel(),
+		"manga" => !book.is_novel(),
+		_ => true,
+	});
+	let has_next_page = !books.is_empty();
+	Ok(MangaPageResult {
+		entries: books.into_iter().map(book_to_manga).collect(),
+		has_next_page,
+	})
+}
+
+fn completed_page(page: i32) -> Result<MangaPageResult> {
+	let page = page.max(1);
+	let url = if page == 1 {
+		format!("{DOMAIN}/category/completed.html")
+	} else {
+		format!("{DOMAIN}/category/completed_{page}.html")
+	};
+	let html = Request::get(&url)?
+		.header("User-Agent", USER_AGENT)
+		.header(
+			"Cookie",
+			"novelcool_webp_valid=true; protocol_cookie_is_show=1; protocol_cookie_is_allow=1; novelcool_list_num=10",
+		)
+		.html()?;
+	let entries: Vec<Manga> = html
+		.select(".category-book-list .book-item")
+		.map(|items| {
+			items
+				.filter_map(|item| {
+					let key = item.select_first(".bk-add-lib")?.attr("book_id")?;
+					let link = item.select_first("a[itemprop=url]")?;
+					let title = item
+						.select_first(".book-name[itemprop=name]")
+						.and_then(|element| element.text())
+						.or_else(|| link.attr("title"))?;
+					let cover = item.select_first(".book-pic img").and_then(|image| {
+						image
+							.attr("abs:cover_url")
+							.or_else(|| image.attr("abs:src"))
+					});
+					let tags: Vec<String> = item
+						.select(".book-tags .book-tag")
+						.map(|tags| tags.filter_map(|tag| tag.text()).collect())
+						.unwrap_or_default();
+					let is_novel = item
+						.select_first(".book-type")
+						.and_then(|element| element.text())
+						.map(|kind| kind.to_lowercase().contains("novel"))
+						.unwrap_or(false);
+					Some(Manga {
+						key,
+						title: title.trim().to_string(),
+						cover,
+						description: item
+							.select_first(".book-summary-content, .book-intro")
+							.and_then(|element| element.text())
+							.map(|text| text.trim().to_string())
+							.filter(|text| !text.is_empty()),
+						status: MangaStatus::Completed,
+						content_rating: content_rating_for(&tags),
+						viewer: if is_novel {
+							Viewer::Vertical
+						} else {
+							Viewer::RightToLeft
+						},
+						tags: (!tags.is_empty()).then_some(tags),
+						url: link.attr("abs:href").or_else(|| link.attr("href")),
+						..Default::default()
+					})
+				})
+				.collect()
+		})
+		.unwrap_or_default();
+	let next = format!("completed_{}.html", page + 1);
+	Ok(MangaPageResult {
+		has_next_page: html.select_first(format!("a[href*='{next}']")).is_some(),
+		entries,
+	})
+}
+
 struct NovelCool;
 
 impl Source for NovelCool {
@@ -433,13 +604,9 @@ impl Home for NovelCool {
 				else {
 					continue;
 				};
-				let mut manga = book_to_manga(featured_books.swap_remove(index));
-				if let Some(image) = item
-					.attr("bg_url")
-					.or_else(|| item.select_first("img").and_then(|img| img.attr("abs:src")))
-				{
-					manga.cover = Some(resolve_url(&image));
-				}
+				let manga = book_to_manga(featured_books.swap_remove(index));
+				// The site's `bg_url` carousel attribute is presentation artwork and can
+				// resolve to the active slide repeatedly. Keep the API's per-book cover.
 				entries.push(manga);
 			}
 		}
@@ -463,46 +630,55 @@ impl Home for NovelCool {
 			}
 		}
 
-		if let Ok(books) = browse("latest", "manga", 1) {
-			let entries: Vec<MangaWithChapter> = books
-				.into_iter()
-				.filter_map(|book| {
-					let chapter_id = book.last_chapter_id.clone()?;
-					let chapter_title = book.last_chapter_title.clone();
-					let date_uploaded = parse_api_date(book.modify_time.as_deref());
-					let manga = book_to_manga(book);
-					Some(MangaWithChapter {
-						manga,
-						chapter: Chapter {
-							key: chapter_id,
-							chapter_number: chapter_title.as_deref().and_then(chapter_number_from),
-							title: chapter_title,
-							date_uploaded,
-							..Default::default()
-						},
+		for (title, kind, listing_id) in [
+			("Latest Manga Updates", "manga", "latest_manga"),
+			("Latest Novel Updates", "novel", "latest_novel"),
+		] {
+			if let Ok(books) = browse("latest", kind, 1) {
+				let entries: Vec<MangaWithChapter> = books
+					.into_iter()
+					.filter_map(|book| {
+						let chapter_id = book.last_chapter_id.clone()?;
+						let chapter_title = book.last_chapter_title.clone();
+						let date_uploaded = parse_api_date(book.modify_time.as_deref());
+						let manga = book_to_manga(book);
+						Some(MangaWithChapter {
+							manga,
+							chapter: Chapter {
+								key: chapter_id,
+								chapter_number: chapter_title
+									.as_deref()
+									.and_then(chapter_number_from),
+								title: chapter_title,
+								date_uploaded,
+								..Default::default()
+							},
+						})
 					})
-				})
-				.collect();
-			if !entries.is_empty() {
-				components.push(HomeComponent {
-					title: Some("Latest Updates".into()),
-					subtitle: None,
-					value: HomeComponentValue::MangaChapterList {
-						page_size: None,
-						entries,
-						listing: Some(Listing {
-							id: "latest".into(),
-							name: "Latest Updates".into(),
-							..Default::default()
-						}),
-					},
-				});
+					.collect();
+				if !entries.is_empty() {
+					components.push(HomeComponent {
+						title: Some(title.into()),
+						subtitle: None,
+						value: HomeComponentValue::MangaChapterList {
+							page_size: None,
+							entries,
+							listing: Some(Listing {
+								id: listing_id.into(),
+								name: title.into(),
+								..Default::default()
+							}),
+						},
+					});
+				}
 			}
 		}
 
 		for (title, order, kind) in [
-			("New Releases", "new_book", "manga"),
+			("Popular Manga", "hot", "manga"),
 			("Popular Novels", "hot", "novel"),
+			("New Manga", "new_book", "manga"),
+			("New Novels", "new_book", "novel"),
 		] {
 			if let Ok(books) = browse(order, kind, 1) {
 				let entries: Vec<Link> = books.into_iter().map(book_to_link).collect();
@@ -513,7 +689,7 @@ impl Home for NovelCool {
 						value: HomeComponentValue::Scroller {
 							entries,
 							listing: Some(Listing {
-								id: order.into(),
+								id: format!("{order}_{kind}"),
 								name: title.into(),
 								..Default::default()
 							}),
@@ -523,19 +699,46 @@ impl Home for NovelCool {
 			}
 		}
 
+		if let Ok(page) = completed_page(1) {
+			let entries: Vec<Link> = page.entries.into_iter().map(Into::into).collect();
+			if !entries.is_empty() {
+				components.push(HomeComponent {
+					title: Some("Completed".into()),
+					subtitle: None,
+					value: HomeComponentValue::Scroller {
+						entries,
+						listing: Some(Listing {
+							id: "completed".into(),
+							name: "Completed".into(),
+							..Default::default()
+						}),
+					},
+				});
+			}
+		}
+
 		Ok(HomeLayout { components })
 	}
 }
 
 impl ListingProvider for NovelCool {
 	fn get_manga_list(&self, listing: Listing, page: i32) -> Result<MangaPageResult> {
-		let order = match listing.id.as_str() {
-			"hot" => "hot",
-			"latest" => "latest",
-			"new_book" => "new_book",
+		if listing.id == "completed" {
+			return completed_page(page);
+		}
+		let (order, kind) = match listing.id.as_str() {
+			"hot" => ("hot", "all"),
+			"latest" => ("latest", "all"),
+			"new_book" => ("new_book", "all"),
+			"hot_manga" => ("hot", "manga"),
+			"hot_novel" => ("hot", "novel"),
+			"latest_manga" => ("latest", "manga"),
+			"latest_novel" => ("latest", "novel"),
+			"new_book_manga" => ("new_book", "manga"),
+			"new_book_novel" => ("new_book", "novel"),
 			_ => bail!("Unknown listing"),
 		};
-		browse_merged(order, "all", page.max(1))
+		browse_merged(order, kind, page.max(1))
 	}
 }
 
