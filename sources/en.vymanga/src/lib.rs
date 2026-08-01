@@ -442,6 +442,42 @@ impl Home for VyManga {
 			}
 		}
 
+		for (title, sort) in [("Top Rated", "scored"), ("Newest", "created_at")] {
+			if let Ok(doc) = Request::get(browse_url(sort, 1))?.html() {
+				let entries: Vec<Link> = parse_cards(&doc)
+					.into_iter()
+					.map(|manga| Link {
+						title: manga.title.clone(),
+						subtitle: None,
+						image_url: manga.cover.clone(),
+						value: Some(LinkValue::Manga(manga)),
+					})
+					.collect();
+				if !entries.is_empty() {
+					let listing = Some(Listing {
+						id: sort.into(),
+						name: title.into(),
+						..Default::default()
+					});
+					let value = if sort == "scored" {
+						HomeComponentValue::MangaList {
+							ranking: true,
+							page_size: Some(10),
+							entries,
+							listing,
+						}
+					} else {
+						HomeComponentValue::Scroller { entries, listing }
+					};
+					components.push(HomeComponent {
+						title: Some(title.into()),
+						subtitle: None,
+						value,
+					});
+				}
+			}
+		}
+
 		if let Ok(doc) = Request::get(base_url())?.html() {
 			let mut seen: Vec<String> = Vec::new();
 			let genres: Vec<FilterItem> = doc
@@ -480,42 +516,6 @@ impl Home for VyManga {
 					subtitle: None,
 					value: HomeComponentValue::Filters(genres),
 				});
-			}
-		}
-
-		for (title, sort) in [("Top Rated", "scored"), ("Newest", "created_at")] {
-			if let Ok(doc) = Request::get(browse_url(sort, 1))?.html() {
-				let entries: Vec<Link> = parse_cards(&doc)
-					.into_iter()
-					.map(|manga| Link {
-						title: manga.title.clone(),
-						subtitle: None,
-						image_url: manga.cover.clone(),
-						value: Some(LinkValue::Manga(manga)),
-					})
-					.collect();
-				if !entries.is_empty() {
-					let listing = Some(Listing {
-						id: sort.into(),
-						name: title.into(),
-						..Default::default()
-					});
-					let value = if sort == "scored" {
-						HomeComponentValue::MangaList {
-							ranking: true,
-							page_size: Some(10),
-							entries,
-							listing,
-						}
-					} else {
-						HomeComponentValue::Scroller { entries, listing }
-					};
-					components.push(HomeComponent {
-						title: Some(title.into()),
-						subtitle: None,
-						value,
-					});
-				}
 			}
 		}
 

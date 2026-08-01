@@ -564,20 +564,24 @@ impl Home for ValirScans {
 			}
 		}
 
-		for (title, list) in [
-			("Popular Today", popular_today),
-			("Editors' Picks", editors),
-		] {
-			let entries: Vec<Link> = list.into_iter().map(series_to_link).collect();
-			if entries.is_empty() {
-				continue;
-			}
+		let entries: Vec<Link> = popular_today.into_iter().map(series_to_link).collect();
+		if !entries.is_empty() {
 			components.push(HomeComponent {
-				title: Some(title.into()),
+				title: Some("Popular Today".into()),
 				subtitle: None,
 				value: HomeComponentValue::Scroller {
 					entries,
 					listing: None,
+				},
+			});
+		}
+		if !editors.is_empty() {
+			components.push(HomeComponent {
+				title: Some("Editors' Picks".into()),
+				subtitle: None,
+				value: HomeComponentValue::BigScroller {
+					entries: editors.into_iter().map(series_to_manga).collect(),
+					auto_scroll_interval: None,
 				},
 			});
 		}

@@ -2,7 +2,7 @@
 	"info": {
 		"id": "en.kaliscan",
 		"name": "KaliScan",
-		"version": 2,
+		"version": 3,
 		"url": "https://kaliscan.io",
 		"contentRating": 1,
 		"languages": ["en"]

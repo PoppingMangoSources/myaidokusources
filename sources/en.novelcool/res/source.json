@@ -2,7 +2,7 @@
 	"info": {
 		"id": "en.novelcool",
 		"name": "NovelCool",
-		"version": 3,
+		"version": 4,
 		"url": "https://www.novelcool.com",
 		"contentRating": 1,
 		"languages": ["en"]
@@ -17,6 +17,7 @@
 		{ "id": "latest_novel", "name": "Latest Novels" },
 		{ "id": "new_book_manga", "name": "New Manga" },
 		{ "id": "new_book_novel", "name": "New Novels" },
-		{ "id": "completed", "name": "Completed" }
+		{ "id": "completed_manga", "name": "Completed Manga" },
+		{ "id": "completed_novel", "name": "Completed Novels" }
 	]
 }
