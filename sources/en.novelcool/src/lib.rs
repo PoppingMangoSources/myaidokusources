@@ -192,7 +192,7 @@ fn browse_merged(order: &str, content_type: &str, page: i32) -> Result<MangaPage
 	})
 }
 
-fn completed_page(page: i32) -> Result<MangaPageResult> {
+fn completed_page(page: i32, content_type: &str) -> Result<MangaPageResult> {
 	let page = page.max(1);
 	let url = if page == 1 {
 		format!("{DOMAIN}/category/completed.html")
@@ -206,7 +206,7 @@ fn completed_page(page: i32) -> Result<MangaPageResult> {
 			"novelcool_webp_valid=true; protocol_cookie_is_show=1; protocol_cookie_is_allow=1; novelcool_list_num=10",
 		)
 		.html()?;
-	let entries: Vec<Manga> = html
+	let mut entries: Vec<Manga> = html
 		.select(".category-book-list .book-item")
 		.map(|items| {
 			items
@@ -255,6 +255,11 @@ fn completed_page(page: i32) -> Result<MangaPageResult> {
 				.collect()
 		})
 		.unwrap_or_default();
+	entries.retain(|manga| match content_type {
+		"novel" => manga.viewer == Viewer::Vertical,
+		"manga" => manga.viewer != Viewer::Vertical,
+		_ => true,
+	});
 	let next = format!("completed_{}.html", page + 1);
 	Ok(MangaPageResult {
 		has_next_page: html.select_first(format!("a[href*='{next}']")).is_some(),
@@ -516,6 +521,24 @@ impl Home for NovelCool {
 				.map(book_to_manga)
 				.collect();
 		}
+		let mut seen_keys = Vec::new();
+		let mut seen_covers = Vec::new();
+		entries.retain(|manga| {
+			let duplicate = seen_keys.iter().any(|key| key == &manga.key)
+				|| manga
+					.cover
+					.as_ref()
+					.map(|cover| seen_covers.iter().any(|seen| seen == cover))
+					.unwrap_or(false);
+			if duplicate {
+				return false;
+			}
+			seen_keys.push(manga.key.clone());
+			if let Some(cover) = manga.cover.clone() {
+				seen_covers.push(cover);
+			}
+			true
+		});
 		{
 			if !entries.is_empty() {
 				components.push(HomeComponent {
@@ -598,21 +621,30 @@ impl Home for NovelCool {
 			}
 		}
 
-		if let Ok(page) = completed_page(1) {
-			let entries: Vec<Link> = page.entries.into_iter().map(Into::into).collect();
-			if !entries.is_empty() {
-				components.push(HomeComponent {
-					title: Some("Completed".into()),
-					subtitle: None,
-					value: HomeComponentValue::Scroller {
-						entries,
-						listing: Some(Listing {
-							id: "completed".into(),
-							name: "Completed".into(),
-							..Default::default()
-						}),
-					},
-				});
+		if let Ok(page) = completed_page(1, "all") {
+			let (novels, manga): (Vec<Manga>, Vec<Manga>) = page
+				.entries
+				.into_iter()
+				.partition(|entry| entry.viewer == Viewer::Vertical);
+			for (title, listing_id, entries) in [
+				("Completed Manga", "completed_manga", manga),
+				("Completed Novels", "completed_novel", novels),
+			] {
+				let entries: Vec<Link> = entries.into_iter().map(Into::into).collect();
+				if !entries.is_empty() {
+					components.push(HomeComponent {
+						title: Some(title.into()),
+						subtitle: None,
+						value: HomeComponentValue::Scroller {
+							entries,
+							listing: Some(Listing {
+								id: listing_id.into(),
+								name: title.into(),
+								..Default::default()
+							}),
+						},
+					});
+				}
 			}
 		}
 
@@ -622,8 +654,11 @@ impl Home for NovelCool {
 
 impl ListingProvider for NovelCool {
 	fn get_manga_list(&self, listing: Listing, page: i32) -> Result<MangaPageResult> {
-		if listing.id == "completed" {
-			return completed_page(page);
+		if listing.id == "completed_manga" {
+			return completed_page(page, "manga");
+		}
+		if listing.id == "completed_novel" {
+			return completed_page(page, "novel");
 		}
 		let (order, kind) = match listing.id.as_str() {
 			"hot" => ("hot", "all"),

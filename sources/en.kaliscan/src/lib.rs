@@ -112,7 +112,7 @@ impl Impl for KaliScan {
 		}
 	}
 
-	fn get_home(&self, _params: &Params) -> Result<HomeLayout> {
+	fn get_home(&self, params: &Params) -> Result<HomeLayout> {
 		let base = base_url();
 		let mut components = Vec::new();
 
@@ -148,13 +148,24 @@ impl Impl for KaliScan {
 				true,
 			),
 		] {
-			let Ok(mangas) = parse_home_cards(&format!("{base}{path}"), selector) else {
+			let Ok(mut mangas) = parse_home_cards(&format!("{base}{path}"), selector) else {
 				continue;
 			};
 			if mangas.is_empty() {
 				continue;
 			}
-			let value = if featured {
+			let descriptive = featured || title == "Editor's Choice";
+			if descriptive {
+				mangas = mangas
+					.into_iter()
+					.take(8)
+					.map(|manga| {
+						self.get_manga_update(params, manga.clone(), true, false)
+							.unwrap_or(manga)
+					})
+					.collect();
+			}
+			let value = if descriptive {
 				HomeComponentValue::BigScroller {
 					entries: mangas,
 					auto_scroll_interval: Some(6.0),

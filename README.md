@@ -41,7 +41,7 @@ If you want the complete, actively maintained set, use the Paperback repository.
 
 <h3><img src="media/sources/allmanga.png" width="24" align="top"/>&nbsp; AllManga &nbsp;<sub><a href="https://mkissa.to">mkissa.to</a></sub></h3>
 
-<sub><a href="https://poppingmangosources.github.io/myaidokusources/sources/en.allmanga-v5.aix"><b>Add to Aidoku</b></a> &nbsp;·&nbsp; <a href="https://poppingmangosources.github.io/myaidokusources/sources/en.allmanga-v5.aix">.aix (v5)</a></sub>
+<sub><a href="https://poppingmangosources.github.io/myaidokusources/sources/en.allmanga-v6.aix"><b>Add to Aidoku</b></a> &nbsp;·&nbsp; <a href="https://poppingmangosources.github.io/myaidokusources/sources/en.allmanga-v6.aix">.aix (v6)</a></sub>
 
 <h3><img src="media/sources/bunmanga.png" width="24" align="top"/>&nbsp; BunManga &nbsp;<sub><a href="https://bunmanga.com">bunmanga.com</a></sub></h3>
 
@@ -57,7 +57,7 @@ If you want the complete, actively maintained set, use the Paperback repository.
 
 <h3><img src="media/sources/kaliscan.png" width="24" align="top"/>&nbsp; KaliScan &nbsp;<sub><a href="https://kaliscan.io">kaliscan.io</a></sub></h3>
 
-<sub><a href="https://poppingmangosources.github.io/myaidokusources/sources/en.kaliscan-v2.aix"><b>Add to Aidoku</b></a> &nbsp;·&nbsp; <a href="https://poppingmangosources.github.io/myaidokusources/sources/en.kaliscan-v2.aix">.aix (v2)</a></sub>
+<sub><a href="https://poppingmangosources.github.io/myaidokusources/sources/en.kaliscan-v3.aix"><b>Add to Aidoku</b></a> &nbsp;·&nbsp; <a href="https://poppingmangosources.github.io/myaidokusources/sources/en.kaliscan-v3.aix">.aix (v3)</a></sub>
 
 <h3><img src="media/sources/kingofshojo.png" width="24" align="top"/>&nbsp; KingOfShojo &nbsp;<sub><a href="https://kingofshojo.com">kingofshojo.com</a></sub></h3>
 
@@ -93,11 +93,11 @@ If you want the complete, actively maintained set, use the Paperback repository.
 
 <h3><img src="media/sources/valirscans.png" width="24" align="top"/>&nbsp; ValirScans &nbsp;<sub><a href="https://valirscans.org">valirscans.org</a></sub></h3>
 
-<sub><a href="https://poppingmangosources.github.io/myaidokusources/sources/en.valirscans-v2.aix"><b>Add to Aidoku</b></a> &nbsp;·&nbsp; <a href="https://poppingmangosources.github.io/myaidokusources/sources/en.valirscans-v2.aix">.aix (v2)</a></sub>
+<sub><a href="https://poppingmangosources.github.io/myaidokusources/sources/en.valirscans-v3.aix"><b>Add to Aidoku</b></a> &nbsp;·&nbsp; <a href="https://poppingmangosources.github.io/myaidokusources/sources/en.valirscans-v3.aix">.aix (v3)</a></sub>
 
 <h3><img src="media/sources/vymanga.png" width="24" align="top"/>&nbsp; VyManga &nbsp;<sub><a href="https://vymanga.com">vymanga.com</a></sub></h3>
 
-<sub><a href="https://poppingmangosources.github.io/myaidokusources/sources/en.vymanga-v2.aix"><b>Add to Aidoku</b></a> &nbsp;·&nbsp; <a href="https://poppingmangosources.github.io/myaidokusources/sources/en.vymanga-v2.aix">.aix (v2)</a></sub>
+<sub><a href="https://poppingmangosources.github.io/myaidokusources/sources/en.vymanga-v3.aix"><b>Add to Aidoku</b></a> &nbsp;·&nbsp; <a href="https://poppingmangosources.github.io/myaidokusources/sources/en.vymanga-v3.aix">.aix (v3)</a></sub>
 
 ## Novels
 
@@ -113,11 +113,11 @@ If you want the complete, actively maintained set, use the Paperback repository.
 
 <h3><img src="media/sources/novelcool.png" width="24" align="top"/>&nbsp; NovelCool &nbsp;<sub><a href="https://www.novelcool.com">novelcool.com</a></sub></h3>
 
-<sub><a href="https://poppingmangosources.github.io/myaidokusources/sources/en.novelcool-v3.aix"><b>Add to Aidoku</b></a> &nbsp;·&nbsp; <a href="https://poppingmangosources.github.io/myaidokusources/sources/en.novelcool-v3.aix">.aix (v3)</a></sub>
+<sub><a href="https://poppingmangosources.github.io/myaidokusources/sources/en.novelcool-v4.aix"><b>Add to Aidoku</b></a> &nbsp;·&nbsp; <a href="https://poppingmangosources.github.io/myaidokusources/sources/en.novelcool-v4.aix">.aix (v4)</a></sub>
 
 <h3><img src="media/sources/valirscans.png" width="24" align="top"/>&nbsp; ValirScans &nbsp;<sub><a href="https://valirscans.org">valirscans.org</a></sub></h3>
 
-<sub><a href="https://poppingmangosources.github.io/myaidokusources/sources/en.valirscans-v2.aix"><b>Add to Aidoku</b></a> &nbsp;·&nbsp; <a href="https://poppingmangosources.github.io/myaidokusources/sources/en.valirscans-v2.aix">.aix (v2)</a></sub>
+<sub><a href="https://poppingmangosources.github.io/myaidokusources/sources/en.valirscans-v3.aix"><b>Add to Aidoku</b></a> &nbsp;·&nbsp; <a href="https://poppingmangosources.github.io/myaidokusources/sources/en.valirscans-v3.aix">.aix (v3)</a></sub>
 
 ---
 
