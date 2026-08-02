@@ -1,8 +1,8 @@
 #![no_std]
 use aidoku::{
-	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterValue, Home, HomeComponent,
-	HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider, Manga,
-	MangaPageResult, MangaWithChapter, Page, PageContent, PageContext, Result, Source,
+	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterItem, FilterValue, Home,
+	HomeComponent, HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider,
+	Manga, MangaPageResult, MangaWithChapter, Page, PageContent, PageContext, Result, Source,
 	alloc::{String, Vec, string::ToString, vec},
 	helpers::uri::QueryParameters,
 	imports::net::Request,
@@ -37,6 +37,7 @@ fn item_to_manga(item: SeriesItem) -> Manga {
 	let cover = format_cover_url(&item.cover_url, 400);
 	let status = status_from(&item.status);
 	let viewer = viewer_for_type(&item.kind);
+	let description = Some(item_summary(&item));
 	let content_rating = if item.is_nsfw {
 		ContentRating::NSFW
 	} else {
@@ -46,6 +47,7 @@ fn item_to_manga(item: SeriesItem) -> Manga {
 		key: item.slug,
 		title: item.title,
 		cover: Some(cover),
+		description,
 		status,
 		content_rating,
 		viewer,
@@ -57,10 +59,84 @@ fn item_to_link(item: SeriesItem) -> Link {
 	let manga = item_to_manga(item);
 	Link {
 		title: manga.title.clone(),
-		subtitle: None,
+		subtitle: manga.description.clone(),
 		image_url: manga.cover.clone(),
 		value: Some(LinkValue::Manga(manga)),
 	}
+}
+
+fn format_count(value: i64) -> String {
+	if value >= 1_000_000 {
+		format!("{:.1}M", value as f64 / 1_000_000.0)
+	} else if value >= 1_000 {
+		format!("{:.1}K", value as f64 / 1_000.0)
+	} else {
+		value.to_string()
+	}
+}
+
+fn item_summary(item: &SeriesItem) -> String {
+	let mut parts = vec![item.kind.to_uppercase()];
+	if item.chapter_count > 0 {
+		parts.push(format!("{} chapters", item.chapter_count));
+	}
+	if let Some(rating) = item.rating.filter(|rating| *rating > 0.0) {
+		parts.push(format!("★ {rating:.1}"));
+	}
+	if item.views > 0 {
+		parts.push(format!("{} views", format_count(item.views)));
+	}
+	parts.join(" · ")
+}
+
+fn take_home_row(rows: &mut Vec<HomeRow>, slug: &str) -> Vec<SeriesItem> {
+	rows.iter()
+		.position(|row| row.slug == slug)
+		.map(|index| rows.remove(index).items)
+		.unwrap_or_default()
+}
+
+fn period_filters(sort: &str) -> Vec<FilterItem> {
+	[("Today", "day"), ("Week", "week"), ("Month", "month")]
+		.into_iter()
+		.map(|(title, period)| FilterItem {
+			title: title.into(),
+			values: Some(vec![
+				FilterValue::Select {
+					id: "sort".into(),
+					value: sort.into(),
+				},
+				FilterValue::Select {
+					id: "period".into(),
+					value: period.into(),
+				},
+			]),
+		})
+		.collect()
+}
+
+fn type_filters(sort: &str) -> Vec<FilterItem> {
+	[
+		("Manga", "manga"),
+		("Manhwa", "manhwa"),
+		("Manhua", "manhua"),
+	]
+	.into_iter()
+	.map(|(title, kind)| FilterItem {
+		title: title.into(),
+		values: Some(vec![
+			FilterValue::Select {
+				id: "sort".into(),
+				value: sort.into(),
+			},
+			FilterValue::MultiSelect {
+				id: "type".into(),
+				included: vec![kind.into()],
+				excluded: Vec::new(),
+			},
+		]),
+	})
+	.collect()
 }
 
 fn sort_id(index: i32) -> &'static str {
@@ -345,100 +421,93 @@ impl Home for Chikari {
 		for kind in settings::content_types() {
 			qs.push("type", Some(&kind));
 		}
-		let home: HomeResponse = api_get(&format!("{API_URL}/home?{qs}"))?;
-
+		let mut rows = api_get::<HomeResponse>(&format!("{API_URL}/home?{qs}"))?.rows;
 		let mut components: Vec<HomeComponent> = Vec::new();
-		for row in home.rows {
-			if row.items.is_empty() {
-				continue;
-			}
-			match row.slug.as_str() {
-				"popular" => {
-					let entries = row
-						.items
-						.into_iter()
-						.take(8)
-						.map(|item| {
-							let manga = item_to_manga(item);
-							self.get_manga_update(manga.clone(), true, false)
-								.unwrap_or(manga)
-						})
-						.collect();
-					components.push(HomeComponent {
-						title: Some("Popular".into()),
-						subtitle: None,
-						value: HomeComponentValue::BigScroller {
-							entries,
-							auto_scroll_interval: Some(5.0),
-						},
-					});
-				}
-				"recently-updated" => {
-					let entries: Vec<MangaWithChapter> = row
-						.items
-						.into_iter()
-						.filter_map(|item| {
-							let latest = item.latest_chapter?;
-							let date_uploaded =
-								item.last_chapter_at.as_deref().and_then(parse_iso_date);
-							let key = chapter_token(Some(latest));
-							let manga = item_to_manga(item);
-							Some(MangaWithChapter {
-								manga,
-								chapter: Chapter {
-									key,
-									chapter_number: Some(latest),
-									date_uploaded,
-									..Default::default()
-								},
-							})
-						})
-						.collect();
-					components.push(HomeComponent {
-						title: Some("Recently Updated".into()),
-						subtitle: None,
-						value: HomeComponentValue::MangaChapterList {
-							page_size: None,
-							entries,
-							listing: Some(Listing {
-								id: "updated".into(),
-								name: "Recently Updated".into(),
-								..Default::default()
-							}),
-						},
-					});
-				}
-				slug => {
-					let (title, listing_id) = match slug {
-						"trending" => ("Trending", "trending"),
-						"top-rated" => ("Top Rated", "top_rated"),
-						"recently-added" => ("Recently Added", "added"),
-						_ => continue,
-					};
-					let entries: Vec<Link> = row.items.into_iter().map(item_to_link).collect();
-					let listing = Some(Listing {
-						id: listing_id.into(),
-						name: title.into(),
+		let popular: Vec<Manga> = take_home_row(&mut rows, "popular")
+			.into_iter()
+			.take(8)
+			.map(item_to_manga)
+			.collect();
+		if !popular.is_empty() {
+			components.push(HomeComponent {
+				title: Some("Popular".into()),
+				subtitle: None,
+				value: HomeComponentValue::BigScroller {
+					entries: popular,
+					auto_scroll_interval: Some(5.0),
+				},
+			});
+		}
+
+		components.push(HomeComponent {
+			title: Some("Trending".into()),
+			subtitle: None,
+			value: HomeComponentValue::Filters(period_filters("trending")),
+		});
+
+		let recently_added: Vec<Link> = take_home_row(&mut rows, "recently-added")
+			.into_iter()
+			.map(item_to_link)
+			.collect();
+		if !recently_added.is_empty() {
+			components.push(HomeComponent {
+				title: Some("Recently Added".into()),
+				subtitle: None,
+				value: HomeComponentValue::Scroller {
+					entries: recently_added,
+					listing: Some(Listing {
+						id: "added".into(),
+						name: "Recently Added".into(),
 						..Default::default()
-					});
-					// Top Rated reads as a chart, so show it ranked.
-					let value = if slug == "top-rated" || slug == "trending" {
-						HomeComponentValue::MangaList {
-							ranking: true,
-							page_size: Some(10),
-							entries,
-							listing,
-						}
-					} else {
-						HomeComponentValue::Scroller { entries, listing }
-					};
-					components.push(HomeComponent {
-						title: Some(title.into()),
-						subtitle: None,
-						value,
-					});
-				}
-			}
+					}),
+				},
+			});
+		}
+
+		let updated: Vec<MangaWithChapter> = take_home_row(&mut rows, "recently-updated")
+			.into_iter()
+			.filter_map(|item| {
+				let latest = item.latest_chapter?;
+				let date_uploaded = item.last_chapter_at.as_deref().and_then(parse_iso_date);
+				let key = chapter_token(Some(latest));
+				let manga = item_to_manga(item);
+				Some(MangaWithChapter {
+					manga,
+					chapter: Chapter {
+						key,
+						chapter_number: Some(latest),
+						date_uploaded,
+						..Default::default()
+					},
+				})
+			})
+			.collect();
+		if !updated.is_empty() {
+			components.push(HomeComponent {
+				title: Some("Recently Updated".into()),
+				subtitle: None,
+				value: HomeComponentValue::MangaChapterList {
+					page_size: None,
+					entries: updated,
+					listing: Some(Listing {
+						id: "updated".into(),
+						name: "Recently Updated".into(),
+						..Default::default()
+					}),
+				},
+			});
+		}
+
+		for (title, value) in [
+			("Most Bookmarked", period_filters("most_bookmarked")),
+			("Popular by Type", type_filters("popular")),
+			("Top Rated by Type", type_filters("top_rated")),
+		] {
+			components.push(HomeComponent {
+				title: Some(title.into()),
+				subtitle: None,
+				value: HomeComponentValue::Filters(value),
+			});
 		}
 
 		Ok(HomeLayout { components })
@@ -447,31 +516,18 @@ impl Home for Chikari {
 
 impl ListingProvider for Chikari {
 	fn get_manga_list(&self, listing: Listing, page: i32) -> Result<MangaPageResult> {
-		let (sort, period, kind) = match listing.id.as_str() {
-			"popular" => ("popular", None, None),
-			"trending" => ("trending", None, None),
-			"top_rated" => ("top_rated", None, None),
-			"updated" => ("updated", None, None),
-			"added" => ("added", None, None),
-			"most_bookmarked" => ("most_bookmarked", None, None),
-			"trending_day" => ("trending-day", Some("day"), None),
-			"trending_week" => ("trending-week", Some("week"), None),
-			"trending_month" => ("trending-month", Some("month"), None),
-			"bookmarked_day" => ("most_bookmarked", Some("day"), None),
-			"bookmarked_week" => ("most_bookmarked", Some("week"), None),
-			"bookmarked_month" => ("most_bookmarked", Some("month"), None),
-			"popular_manga" => ("popular", None, Some("manga")),
-			"popular_manhwa" => ("popular", None, Some("manhwa")),
-			"popular_manhua" => ("popular", None, Some("manhua")),
-			"top_manga" => ("top_rated", None, Some("manga")),
-			"top_manhwa" => ("top_rated", None, Some("manhwa")),
-			"top_manhua" => ("top_rated", None, Some("manhua")),
+		let sort = match listing.id.as_str() {
+			"popular" => "popular",
+			"trending" => "trending",
+			"top_rated" => "top_rated",
+			"updated" => "updated",
+			"added" => "added",
+			"most_bookmarked" => "most_bookmarked",
 			_ => bail!("Unknown listing"),
 		};
 		let page = page.max(1);
 		let offset = (page - 1) * PAGE_SIZE;
-		let types = kind.map(|kind| vec![kind.into()]).unwrap_or_default();
-		let data = fetch_series(sort, period, None, &types, &[], offset)?;
+		let data = fetch_series(sort, None, None, &[], &[], offset)?;
 		let next_offset = offset + data.items.len() as i32;
 		let has_next_page = !data.items.is_empty() && next_offset < data.total;
 		let entries = data.items.into_iter().map(item_to_manga).collect();
