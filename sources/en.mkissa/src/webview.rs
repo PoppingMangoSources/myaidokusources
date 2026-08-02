@@ -98,9 +98,15 @@ fn capture_script() -> String {
 		}}
 		return out;
 	}};
+	let step = 0;
 	const tick = setInterval(() => {{
 		if (state.settled) {{ clearInterval(tick); return; }}
-		window.scrollTo(0, document.body.scrollHeight);
+		// Walk down the page so every lazily mounted image gets a chance to set
+		// its src, then return to the top for the next pass.
+		const height = document.body.scrollHeight || 0;
+		const y = ((step % 10) / 9) * height;
+		window.scrollTo(0, y);
+		step++;
 		const urls = scrape();
 		stable = urls.length > 0 && urls.length === last ? stable + 1 : 0;
 		last = urls.length;
@@ -154,6 +160,9 @@ fn collect_pages(manga_id: &str, chapter: &str) -> Result<Vec<String>> {
 			.header("Referer", &format!("{DOMAIN}/"))
 			.header("Accept", "text/html,application/xhtml+xml,*/*;q=0.8"),
 	)?;
+	// The Cloudflare check reloads the page once it passes, so wait for the real
+	// reader document to settle before relying on the collector it carries.
+	web_view.wait_for_load();
 
 	// Long enough for the reader to clear a Cloudflare check and then fetch its
 	// pages before giving up.
