@@ -174,10 +174,22 @@ impl PictureUrl {
 
 #[derive(Deserialize)]
 pub struct ChapterPageEdge {
+	// The reader response names the image host `serverUrl`; older payloads used
+	// `pictureUrlHead`, so accept either.
+	#[serde(rename = "serverUrl")]
+	pub server_url: Option<String>,
 	#[serde(rename = "pictureUrlHead")]
 	pub picture_url_head: Option<String>,
 	#[serde(rename = "pictureUrls")]
 	pub picture_urls: Option<Vec<PictureUrl>>,
+}
+
+impl ChapterPageEdge {
+	pub fn image_host(&self) -> Option<&str> {
+		self.server_url
+			.as_deref()
+			.or(self.picture_url_head.as_deref())
+	}
 }
 
 #[derive(Deserialize)]

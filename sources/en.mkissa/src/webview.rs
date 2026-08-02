@@ -11,163 +11,108 @@ use aidoku::{
 const RESULT_TOKEN: &str = "__AIDOKU_MKISSA_PAGES__";
 const WAIT_TOKEN: &str = "__AIDOKU_MKISSA_WAIT__";
 
-/// Captures the decoded `chapterPages` payload before the reader consumes it.
-fn capture_script() -> String {
+/// Hooks the reader's own decode and drives the app to the chapter.
+///
+/// The manga page is loaded first, then a link to the chapter is clicked so the
+/// site's router navigates to the reader client-side and fetches its pages. The
+/// `chapterPages` payload is captured off `Response.json` / `JSON.parse` before
+/// the reader consumes it. This mirrors the community keiyoushi source.
+fn capture_script(chapter_path: &str) -> String {
 	format!(
-		"(() => {{
+		"(function () {{
 	if (window['{RESULT_TOKEN}']) return;
-	window['{RESULT_TOKEN}'] = {{ data: '', done: false, settled: false }};
+	window['{RESULT_TOKEN}'] = {{ data: '', done: false }};
 	const state = window['{RESULT_TOKEN}'];
 	const finish = (payload) => {{
-		if (state.settled) return;
-		state.settled = true;
+		if (state.done) return;
 		state.data = payload;
 		state.done = true;
 	}};
-	const capture = (value) => {{
-		try {{
-			if (!value || typeof value !== 'object') return;
-			const chapterPages = value.chapterPages || (value.data && value.data.chapterPages);
-			if (chapterPages) {{
-				finish(JSON.stringify({{ chapterPages }}));
-				return;
-			}}
-			const pages = value.edges && Array.isArray(value.edges) ? value : null;
-			if (pages && pages.edges.some((edge) => edge && Array.isArray(edge.pictureUrls) && edge.pictureUrls.length)) {{
-				finish(JSON.stringify({{ chapterPages: pages }}));
-			}}
-		}} catch (_) {{}}
+
+	const originalJson = Response.prototype.json;
+	Response.prototype.json = function () {{
+		return originalJson.call(this).then((data) => {{
+			try {{ if (data && data.chapterPages) finish(JSON.stringify(data)); }} catch (_) {{}}
+			return data;
+		}});
 	}};
+
 	const originalParse = JSON.parse;
 	JSON.parse = new Proxy(originalParse, {{
 		apply(target, thisArg, args) {{
-			const parsed = Reflect.apply(target, thisArg, args);
-			capture(parsed);
-			return parsed;
+			const result = Reflect.apply(target, thisArg, args);
+			try {{ if (result && result.chapterPages) finish(args[0]); }} catch (_) {{}}
+			return result;
 		}}
 	}});
-	if (window.Response) {{
-		const originalJson = Response.prototype.json;
-		Response.prototype.json = function () {{
-			return originalJson.call(this).then((parsed) => {{
-				capture(parsed);
-				return parsed;
-			}});
-		}};
-	}}
-	const originalFetch = window.fetch;
-	if (originalFetch) {{
-		window.fetch = function (...args) {{
-			return originalFetch.apply(this, args).then((response) => {{
-				try {{
-					response.clone().text().then((raw) => {{
-						try {{ capture(JSON.parse(raw)); }} catch (_) {{}}
-					}});
-				}} catch (_) {{}}
-				return response;
-			}});
-		}};
-	}}
-	if (window.XMLHttpRequest) {{
-		const originalOpen = XMLHttpRequest.prototype.open;
-		XMLHttpRequest.prototype.open = function (...args) {{
-			this.addEventListener('load', function () {{
-				try {{ capture(JSON.parse(this.responseText)); }} catch (_) {{}}
-			}});
-			return originalOpen.apply(this, args);
-		}};
+
+	function triggerChapterNav() {{
+		const a = document.createElement('a');
+		a.href = a.dataset.href = '{chapter_path}';
+		document.body.append(a);
+		a.click();
 	}}
 
-	// Fallback: once the reader renders its pages, read the image srcs straight
-	// off the document. This does not depend on the shape of the api response,
-	// only on the pages the reader actually shows.
-	let last = -1;
-	let stable = 0;
-	const scrape = () => {{
-		const seen = {{}};
-		const out = [];
-		const images = document.querySelectorAll('img');
-		for (let i = 0; i < images.length; i++) {{
-			const src = images[i].currentSrc || images[i].getAttribute('src') || '';
-			if (!src || src.indexOf('data:') === 0) continue;
-			if (src.indexOf('youtube-anime.com') === -1) continue;
-			if (src.indexOf('aln.youtube-anime.com') !== -1) continue;
-			if (seen[src]) continue;
-			seen[src] = 1;
-			out.push(src);
-		}}
-		return out;
-	}};
-	let step = 0;
-	const tick = setInterval(() => {{
-		if (state.settled) {{ clearInterval(tick); return; }}
-		// Walk down the page so every lazily mounted image gets a chance to set
-		// its src, then return to the top for the next pass.
-		const height = document.body.scrollHeight || 0;
-		const y = ((step % 10) / 9) * height;
-		window.scrollTo(0, y);
-		step++;
-		const urls = scrape();
-		stable = urls.length > 0 && urls.length === last ? stable + 1 : 0;
-		last = urls.length;
-		if (urls.length > 0 && stable >= 3) {{
-			clearInterval(tick);
-			finish(JSON.stringify({{ chapterPages: {{ edges: [{{ pictureUrls: urls }}] }} }}));
-		}}
-	}}, 300);
-
-	setTimeout(() => {{
-		clearInterval(tick);
-		if (state.settled) return;
-		const urls = scrape();
-		if (urls.length > 0) {{
-			finish(JSON.stringify({{ chapterPages: {{ edges: [{{ pictureUrls: urls }}] }} }}));
+	let attempts = 0;
+	function check() {{
+		if (state.done) return;
+		if (document.querySelector('[data-href]')) {{
+			triggerChapterNav();
+		}} else if (attempts < 300) {{
+			attempts++;
+			setTimeout(check, 50);
 		}} else {{
-			finish('');
+			triggerChapterNav();
 		}}
-	}}, 90000);
+	}}
+	check();
 }})()"
 	)
 }
 
-/// Loads a chapter in a background web view and returns its page urls.
+/// Loads a chapter through the reader and returns its page urls.
 pub fn page_urls_via_webview(manga_id: &str, chapter: &str) -> Result<Vec<String>> {
-	let urls = collect_pages(manga_id, chapter)?;
+	let pages = collect_pages(manga_id, chapter)?;
+	let quality = crate::settings::image_quality();
+	let urls = crate::parsers::parse_page_urls(&pages, &quality);
 	if urls.is_empty() {
 		bail!("The reader did not produce any pages");
 	}
-	let quality = crate::settings::image_quality();
-	Ok(urls
-		.into_iter()
-		.map(|url| crate::parsers::apply_image_quality(&url, &quality))
-		.collect())
+	Ok(urls)
 }
 
-fn collect_pages(manga_id: &str, chapter: &str) -> Result<Vec<String>> {
-	let reader_url = format!("{DOMAIN}/manga/{manga_id}/chapter-{chapter}-sub/");
+fn collect_pages(manga_id: &str, chapter: &str) -> Result<ChapterPages> {
+	let manga_url = format!("{DOMAIN}/manga/{manga_id}");
+	let chapter_path = format!("/manga/{manga_id}/chapter-{chapter}-sub");
 
-	// One real navigation, nothing else. The web view renders the reader page
-	// itself, so a Cloudflare check shows up here in the reader and, once the
-	// reader solves it, its scripts fetch the pages. Fetching the page over a
-	// separate request first only made Cloudflare prompt a second time.
+	// Fetch the manga page over an ordinary request. Aidoku clears Cloudflare
+	// here — silently, or through the captcha sheet the app shows — and stores
+	// the clearance cookie. If it still comes back challenged, ask the reader to
+	// retry once the check is solved.
+	let response = Request::get(&manga_url)?
+		.header("Referer", &format!("{DOMAIN}/"))
+		.header("Accept", "text/html,application/xhtml+xml,*/*;q=0.8")
+		.send()?;
+	let status = response.status_code();
+	if status == 403 || status == 503 {
+		bail!("Solve the Cloudflare check, then retry");
+	} else if status >= 400 {
+		bail!("The reader returned HTTP {status}");
+	}
+	let html = response.get_string()?;
+
+	// Load the cleared manga page, then navigate to the chapter client-side. The
+	// site's router fetches the pages from its api without another page load, so
+	// Cloudflare is not asked a second time.
 	let web_view = WebView::new();
-	let mut user_script = WebViewUserScript::new(capture_script());
+	let mut user_script = WebViewUserScript::new(capture_script(&chapter_path));
 	user_script.at_document_end = false;
 	user_script.for_main_frame_only = false;
 	web_view.add_user_script(user_script)?;
-	web_view.load(
-		Request::get(&reader_url)?
-			.header("Referer", &format!("{DOMAIN}/"))
-			.header("Accept", "text/html,application/xhtml+xml,*/*;q=0.8"),
-	)?;
-	// The Cloudflare check reloads the page once it passes, so wait for the real
-	// reader document to settle before relying on the collector it carries.
-	web_view.wait_for_load();
+	web_view.load_html_blocking(&html, Some(&manga_url))?;
 
-	// Long enough for the reader to clear a Cloudflare check and then fetch its
-	// pages before giving up.
 	let mut result = String::new();
-	for _ in 0..90 {
+	for _ in 0..60 {
 		if let Ok(value) = web_view.eval(&format!(
 			"(() => {{
 				const state = window['{RESULT_TOKEN}'];
@@ -182,19 +127,15 @@ fn collect_pages(manga_id: &str, chapter: &str) -> Result<Vec<String>> {
 		sleep(1);
 	}
 	if result == WAIT_TOKEN || result.is_empty() {
-		return Ok(Vec::new());
+		bail!("The reader did not produce any pages");
 	}
-	let parsed: ApiPagesResponse = match serde_json::from_str(&result) {
-		Ok(parsed) => parsed,
-		Err(_) => return Ok(Vec::new()),
-	};
-	let Some(pages) = parsed
+
+	let parsed: ApiPagesResponse =
+		serde_json::from_str(&result).or_else(|_| bail!("Failed to read the reader pages"))?;
+	parsed
 		.chapter_pages
 		.or_else(|| parsed.data.and_then(|data| data.chapter_pages))
-	else {
-		return Ok(Vec::new());
-	};
-	Ok(crate::parsers::parse_page_urls(&pages, "original"))
+		.ok_or_else(|| error!("The reader did not produce any pages"))
 }
 
 #[derive(serde::Deserialize)]

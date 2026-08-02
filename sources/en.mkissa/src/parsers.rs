@@ -246,11 +246,11 @@ pub fn parse_page_urls(pages: &ChapterPages, quality: &str) -> Vec<String> {
 				.unwrap_or(&[])
 				.iter()
 				.any(|p| p.url().is_some_and(is_absolute));
-			has_absolute || e.picture_url_head.is_some()
+			has_absolute || e.image_host().is_some()
 		})
 		.unwrap_or(&pages.edges[0]);
 
-	let image_domain = match edge.picture_url_head.as_deref() {
+	let image_domain = match edge.image_host() {
 		Some(server) if is_absolute(server) => format!("{}/", server.trim_end_matches('/')),
 		Some(server) => format!("https://{}/", server.trim_end_matches('/')),
 		None => DEFAULT_IMAGE_SERVER.to_string(),
