@@ -633,6 +633,7 @@ impl Home for ScansGG {
 		qs.push("chapters", Some("true"));
 		qs.push("series_details", Some("true"));
 		qs.push("group_details", Some("true"));
+		qs.push("collab_groups_details", Some("true"));
 		qs.push("sort", Some("date"));
 		if let Ok(response) =
 			get::<ResponseDto<Vec<SeriesDto>>>(&format!("{}/chapters?{qs}", api_url()))

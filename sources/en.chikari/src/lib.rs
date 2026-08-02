@@ -103,6 +103,9 @@ const HOME_ROWS: [HomeRowSpec; 8] = [
 	HomeRowSpec::new("Popular Manga", "popular", None, Some("manga"), false),
 	HomeRowSpec::new("Popular Manhwa", "popular", None, Some("manhwa"), false),
 	HomeRowSpec::new("Popular Manhua", "popular", None, Some("manhua"), false),
+	HomeRowSpec::new("Top Rated Manga", "top_rated", None, Some("manga"), false),
+	HomeRowSpec::new("Top Rated Manhwa", "top_rated", None, Some("manhwa"), false),
+	HomeRowSpec::new("Top Rated Manhua", "top_rated", None, Some("manhua"), false),
 	HomeRowSpec::new(
 		"Most Bookmarked This Month",
 		"most_bookmarked",
@@ -110,9 +113,6 @@ const HOME_ROWS: [HomeRowSpec; 8] = [
 		None,
 		true,
 	),
-	HomeRowSpec::new("Top Rated Manga", "top_rated", None, Some("manga"), false),
-	HomeRowSpec::new("Top Rated Manhwa", "top_rated", None, Some("manhwa"), false),
-	HomeRowSpec::new("Top Rated Manhua", "top_rated", None, Some("manhua"), false),
 	// The site offers day/week/month; the widest window makes the steadiest row.
 	HomeRowSpec::new(
 		"Trending This Month",
@@ -495,6 +495,40 @@ impl Home for Chikari {
 			});
 		}
 
+		let updated: Vec<MangaWithChapter> = take_home_row(&mut rows, "recently-updated")
+			.into_iter()
+			.filter_map(|item| {
+				let latest = item.latest_chapter?;
+				let date_uploaded = item.last_chapter_at.as_deref().and_then(parse_iso_date);
+				let key = chapter_token(Some(latest));
+				let manga = item_to_manga(item);
+				Some(MangaWithChapter {
+					manga,
+					chapter: Chapter {
+						key,
+						chapter_number: Some(latest),
+						date_uploaded,
+						..Default::default()
+					},
+				})
+			})
+			.collect();
+		if !updated.is_empty() {
+			components.push(HomeComponent {
+				title: Some("Recently Updated".into()),
+				subtitle: None,
+				value: HomeComponentValue::MangaChapterList {
+					page_size: None,
+					entries: updated,
+					listing: Some(Listing {
+						id: "updated".into(),
+						name: "Recently Updated".into(),
+						..Default::default()
+					}),
+				},
+			});
+		}
+
 		for (row, response) in HOME_ROWS.iter().zip(responses) {
 			let entries: Vec<Manga> = response
 				.ok()
@@ -538,40 +572,6 @@ impl Home for Chikari {
 					listing: Some(Listing {
 						id: "added".into(),
 						name: "Recently Added".into(),
-						..Default::default()
-					}),
-				},
-			});
-		}
-
-		let updated: Vec<MangaWithChapter> = take_home_row(&mut rows, "recently-updated")
-			.into_iter()
-			.filter_map(|item| {
-				let latest = item.latest_chapter?;
-				let date_uploaded = item.last_chapter_at.as_deref().and_then(parse_iso_date);
-				let key = chapter_token(Some(latest));
-				let manga = item_to_manga(item);
-				Some(MangaWithChapter {
-					manga,
-					chapter: Chapter {
-						key,
-						chapter_number: Some(latest),
-						date_uploaded,
-						..Default::default()
-					},
-				})
-			})
-			.collect();
-		if !updated.is_empty() {
-			components.push(HomeComponent {
-				title: Some("Recently Updated".into()),
-				subtitle: None,
-				value: HomeComponentValue::MangaChapterList {
-					page_size: None,
-					entries: updated,
-					listing: Some(Listing {
-						id: "updated".into(),
-						name: "Recently Updated".into(),
 						..Default::default()
 					}),
 				},
