@@ -98,13 +98,33 @@ pub fn page_urls_via_webview(manga_id: &str, chapter: &str) -> Result<Vec<String
 fn collect_pages(manga_id: &str, chapter: &str) -> Result<Vec<String>> {
 	let reader_url = format!("{DOMAIN}/manga/{manga_id}/chapter-{chapter}-sub/");
 
+	// Fetch the reader through an ordinary request first. The app intercepts a
+	// Cloudflare challenge on this request and shows it in the page, then keeps
+	// the clearance cookie; a headless web view load would hide the challenge
+	// and simply come back empty. This is the pattern the community comix source
+	// uses to keep Cloudflare in front of the user.
+	let response = Request::get(&reader_url)?
+		.header("Referer", &format!("{DOMAIN}/"))
+		.header("Accept", "text/html,application/xhtml+xml,*/*;q=0.8")
+		.send()?;
+	let status = response.status_code();
+	if status == 403
+		&& response
+			.get_header("cf-mitigated")
+			.is_some_and(|value| value == "challenge")
+	{
+		bail!("Cloudflare is asking for a check — solve it here, then tap retry");
+	} else if status >= 400 {
+		bail!("The reader returned HTTP {status}");
+	}
+
+	// The clearance cookie is shared with the web view, so the reader now loads
+	// without a fresh challenge and its scripts can fetch the pages.
 	let web_view = WebView::new();
 	let mut user_script = WebViewUserScript::new(capture_script());
 	user_script.at_document_end = false;
 	user_script.for_main_frame_only = false;
 	web_view.add_user_script(user_script)?;
-	// `load` preserves WebView cookies and page navigation without the unbounded
-	// wait used by `load_blocking`; the poll below supplies the hard deadline.
 	web_view.load(
 		Request::get(&reader_url)?
 			.header("Referer", &format!("{DOMAIN}/"))
