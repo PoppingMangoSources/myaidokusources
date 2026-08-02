@@ -7,14 +7,11 @@ pub fn make_request<T: DeserializeOwned>(query: &str, variables: serde_json::Val
 	let body = serde_json::to_vec(&serde_json::json!({ "query": query, "variables": variables }))
 		.or_else(|_| bail!("Failed to build request body"))?;
 
-	// The api turns away requests that do not look like the site's own front
-	// end, so the browser user agent and accept string travel with every call.
 	let response = Request::post(API_URL)?
 		.header("Content-Type", "application/json")
-		.header("Accept", "application/json, text/plain, */*")
-		.header("User-Agent", USER_AGENT)
-		.header("Referer", &format!("{API_REFERER}/"))
-		.header("Origin", API_REFERER)
+		.header("Accept", "application/json")
+		.header("Referer", &format!("{DOMAIN}/"))
+		.header("Origin", DOMAIN)
 		.body(body)
 		.send()?;
 

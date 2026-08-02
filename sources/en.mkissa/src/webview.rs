@@ -11,10 +11,6 @@ use aidoku::{
 const RESULT_TOKEN: &str = "__AIDOKU_MKISSA_PAGES__";
 const WAIT_TOKEN: &str = "__AIDOKU_MKISSA_WAIT__";
 
-/// Tight checks before backing off, then one check a second.
-const HOT_POLLS: i32 = 150;
-const SLOW_POLLS: i32 = 25;
-
 /// Captures the decoded `chapterPages` payload before the reader consumes it.
 fn capture_script() -> String {
 	format!(
@@ -122,9 +118,14 @@ pub fn page_urls_via_webview(manga_id: &str, chapter: &str) -> Result<Vec<String
 
 fn collect_pages(manga_id: &str, chapter: &str) -> Result<Vec<String>> {
 	let reader_url = format!("{DOMAIN}/manga/{manga_id}/chapter-{chapter}-sub/");
+	let response = Request::get(&reader_url)?
+		.header("Referer", &format!("{DOMAIN}/"))
+		.header("Accept", "text/html,application/xhtml+xml,*/*;q=0.8")
+		.send()?;
+	if response.status_code() >= 400 {
+		bail!("Mkissa reader returned HTTP {}", response.status_code());
+	}
 
-	// The web view fetches the reader itself, so no probe request first: it
-	// costs a round trip and gives the challenge one more chance to fire.
 	let web_view = WebView::new();
 	let mut user_script = WebViewUserScript::new(capture_script());
 	user_script.at_document_end = false;
@@ -138,25 +139,20 @@ fn collect_pages(manga_id: &str, chapter: &str) -> Result<Vec<String>> {
 			.header("Accept", "text/html,application/xhtml+xml,*/*;q=0.8"),
 	)?;
 
-	let poll = format!(
-		"(() => {{
-			const state = window['{RESULT_TOKEN}'];
-			return state && state.done ? state.data : '{WAIT_TOKEN}';
-		}})()"
-	);
-	// The payload is usually captured well inside a second, so poll hot first
-	// and only fall back to one check a second for the long tail.
 	let mut result = String::new();
-	for round in 0..(HOT_POLLS + SLOW_POLLS) {
-		if let Ok(value) = web_view.eval(&poll)
-			&& value != WAIT_TOKEN
-		{
+	for _ in 0..30 {
+		if let Ok(value) = web_view.eval(&format!(
+			"(() => {{
+				const state = window['{RESULT_TOKEN}'];
+				return state && state.done ? state.data : '{WAIT_TOKEN}';
+			}})()"
+		)) {
 			result = value;
-			break;
+			if result != WAIT_TOKEN {
+				break;
+			}
 		}
-		if round >= HOT_POLLS {
-			sleep(1);
-		}
+		sleep(1);
 	}
 	if result == WAIT_TOKEN || result.is_empty() {
 		return Ok(Vec::new());
