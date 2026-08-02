@@ -10,8 +10,8 @@ pub fn make_request<T: DeserializeOwned>(query: &str, variables: serde_json::Val
 	let response = Request::post(API_URL)?
 		.header("Content-Type", "application/json")
 		.header("Accept", "application/json")
-		.header("Referer", &format!("{DOMAIN}/"))
-		.header("Origin", DOMAIN)
+		.header("Referer", &format!("{API_REFERER}/"))
+		.header("Origin", API_REFERER)
 		.body(body)
 		.send()?;
 

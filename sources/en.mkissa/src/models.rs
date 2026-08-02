@@ -2,7 +2,11 @@ use aidoku::alloc::{String, Vec};
 use serde::Deserialize;
 
 pub const DOMAIN: &str = "https://mkissa.to";
-pub const API_URL: &str = "https://api.mkissa.net/api";
+pub const API_URL: &str = "https://api.allanime.day/api";
+
+/// The api only answers for the front end it belongs to, so requests keep
+/// pointing at that origin regardless of which mirror the reader browses.
+pub const API_REFERER: &str = "https://allmanga.to";
 
 pub const THUMBNAIL_CDN: &str = "https://wp.youtube-anime.com/aln.youtube-anime.com/";
 pub const IMAGE_CDN: &str = "https://wp.youtube-anime.com";
