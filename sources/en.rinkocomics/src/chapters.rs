@@ -81,7 +81,7 @@ fn relative_date(text: &str) -> Option<i64> {
 	Some(current_date() - amount * seconds)
 }
 
-fn chapter_date(text: &str) -> Option<i64> {
+pub fn chapter_date(text: &str) -> Option<i64> {
 	relative_date(text)
 		.or_else(|| parse_date(text, "MMMM d, yyyy"))
 		.or_else(|| parse_date(text, "MMM d, yyyy"))

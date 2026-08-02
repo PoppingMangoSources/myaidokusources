@@ -246,11 +246,17 @@ impl Impl for RinkoComics {
 							.select_first("label")
 							.and_then(|el| el.text())
 							.or_else(|| chapter.text())?;
+						let date_uploaded = chapter
+							.select_first(".chapter-date, time")
+							.or_else(|| item.select_first(".chapter-date, time"))
+							.and_then(|el| el.attr("datetime").or_else(|| el.text()))
+							.and_then(|text| chapters::chapter_date(text.trim()));
 						Some(MangaWithChapter {
 							manga,
 							chapter: Chapter {
 								key: href.strip_prefix_or_self(&params.base_url).into(),
 								chapter_number: chapter_number(&label),
+								date_uploaded,
 								title: Some(label),
 								url: Some(href),
 								..Default::default()
@@ -277,13 +283,28 @@ impl Impl for RinkoComics {
 			.map(|items| {
 				items
 					.filter_map(|item| {
-						card_manga(
+						let mut manga = card_manga(
 							params,
 							&item,
 							"a.novel-card-link",
 							".novel-title",
 							".novel-cover img",
-						)
+						)?;
+						let chapters = item
+							.select_first(".novel-chapters, .chapter-count, .chapter-badge")
+							.and_then(|el| el.text())
+							.map(|text| text.trim().to_string())
+							.filter(|text| !text.is_empty());
+						let blurb = item
+							.select_first(".novel-description, .novel-summary, .novel-excerpt, p")
+							.and_then(|el| el.text())
+							.map(|text| text.trim().to_string())
+							.filter(|text| !text.is_empty());
+						manga.description = match (chapters, blurb) {
+							(Some(chapters), Some(blurb)) => Some(format!("{chapters} · {blurb}")),
+							(chapters, blurb) => chapters.or(blurb),
+						};
+						Some(manga)
 					})
 					.map(Into::into)
 					.collect()

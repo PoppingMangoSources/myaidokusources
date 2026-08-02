@@ -7,6 +7,7 @@ use aidoku::{
 	imports::defaults::defaults_get,
 	imports::html::Document,
 	imports::net::Request,
+	imports::std::{current_date, parse_date},
 	prelude::*,
 };
 use madtheme::{Impl, MadTheme, Params};
@@ -54,6 +55,34 @@ fn first_number(text: &str) -> Option<f32> {
 		}
 	}
 	number.trim_matches('.').parse().ok()
+}
+
+/// Resolves the release stamps the cards use, which are relative more often
+/// than not.
+fn relative_date(text: &str) -> Option<i64> {
+	let lowered = text.trim().to_lowercase();
+	if lowered.is_empty() {
+		return None;
+	}
+	if let Some(rest) = lowered.strip_suffix("ago") {
+		let mut parts = rest.split_whitespace();
+		let amount: i64 = parts.next()?.parse().ok()?;
+		let seconds = match parts.next()?.trim_end_matches('s') {
+			"second" => 1,
+			"minute" | "min" => 60,
+			"hour" | "hr" => 3600,
+			"day" => 86400,
+			"week" => 604800,
+			"month" => 2592000,
+			"year" => 31536000,
+			_ => return None,
+		};
+		return Some(current_date() - amount * seconds);
+	}
+	parse_date(&lowered, "yyyy-MM-dd'T'HH:mm:ss")
+		.or_else(|| parse_date(&lowered, "yyyy-MM-dd"))
+		.or_else(|| parse_date(text.trim(), "MMM d, yyyy"))
+		.or_else(|| parse_date(text.trim(), "MMMM d, yyyy"))
 }
 
 fn parse_home_cards(document: &Document, selector: &str, base: &str) -> Vec<Manga> {
@@ -128,6 +157,11 @@ fn parse_latest(document: &Document, base: &str) -> Vec<MangaWithChapter> {
 					let chapter = item.select_first("a[href*='chapter']")?;
 					let chapter_href = chapter.attr("abs:href").or_else(|| chapter.attr("href"))?;
 					let chapter_title = chapter.text()?.trim().to_string();
+					// The card stamps its own release time next to the chapter link.
+					let date_uploaded = item
+						.select_first(".chapter-update, .chapter-time, .latest-update, time")
+						.and_then(|el| el.attr("datetime").or_else(|| el.text()))
+						.and_then(|text| relative_date(text.trim()));
 					let image = item.select_first("img")?;
 					let tags: Vec<String> = item
 						.select(".genres a, .genres span, a[href*='/genre/']")
@@ -164,6 +198,7 @@ fn parse_latest(document: &Document, base: &str) -> Vec<MangaWithChapter> {
 						chapter: Chapter {
 							key: chapter_href.strip_prefix_or_self(base).into(),
 							chapter_number: first_number(&chapter_title),
+							date_uploaded,
 							title: Some(chapter_title),
 							url: Some(chapter_href),
 							..Default::default()

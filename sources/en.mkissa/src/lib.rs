@@ -344,14 +344,14 @@ impl Home for Mkissa {
 	fn get_home(&self) -> Result<HomeLayout> {
 		let mut components: Vec<HomeComponent> = Vec::new();
 
-		if let Ok((recommendations, _)) = popular_cards(0, 1) {
+		if let Ok((recommendations, _)) = popular_cards(1, 1) {
 			let entries: Vec<Manga> = recommendations
 				.into_iter()
 				.filter_map(recommendation_to_manga)
 				.collect();
 			if !entries.is_empty() {
 				components.push(HomeComponent {
-					title: Some("Popular".into()),
+					title: Some("Popular Today".into()),
 					subtitle: None,
 					value: HomeComponentValue::BigScroller {
 						entries,
@@ -361,9 +361,12 @@ impl Home for Mkissa {
 			}
 		}
 
-		for (title, id, date_range) in [
-			("Popular This Week", "popular_week", 7),
-			("Popular This Month", "popular_month", 30),
+		// Week and month are shelves; the all-time chart closes them out as a
+		// ranked countdown, the way this source was originally laid out.
+		for (title, id, date_range, ranked) in [
+			("Popular This Week", "popular_week", 7, false),
+			("Popular This Month", "popular_month", 30, false),
+			("Popular All Time", "popular_all_time", 0, true),
 		] {
 			if let Ok((recommendations, _)) = popular_cards(date_range, 1) {
 				let entries: Vec<Link> = recommendations
@@ -372,16 +375,23 @@ impl Home for Mkissa {
 					.map(Into::into)
 					.collect();
 				if !entries.is_empty() {
+					let listing = Some(Listing {
+						id: id.into(),
+						name: title.into(),
+						..Default::default()
+					});
 					components.push(HomeComponent {
 						title: Some(title.into()),
 						subtitle: None,
-						value: HomeComponentValue::Scroller {
-							entries,
-							listing: Some(Listing {
-								id: id.into(),
-								name: title.into(),
-								..Default::default()
-							}),
+						value: if ranked {
+							HomeComponentValue::MangaList {
+								ranking: true,
+								page_size: Some(10),
+								entries,
+								listing,
+							}
+						} else {
+							HomeComponentValue::Scroller { entries, listing }
 						},
 					});
 				}

@@ -2,7 +2,7 @@
 	"info": {
 		"id": "en.rinkocomics",
 		"name": "RinkoComics",
-		"version": 6,
+		"version": 7,
 		"url": "https://rinkocomics.com",
 		"contentRating": 0,
 		"languages": ["en"],
