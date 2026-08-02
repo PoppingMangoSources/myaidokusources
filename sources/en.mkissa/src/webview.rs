@@ -2,7 +2,7 @@ use crate::models::*;
 use aidoku::{
 	Result,
 	alloc::{String, Vec},
-	imports::js::WebView,
+	imports::js::{WebView, WebViewUserScript},
 	imports::net::Request,
 	imports::std::sleep,
 	prelude::*,
@@ -77,7 +77,7 @@ fn capture_script() -> String {
 			return originalOpen.apply(this, args);
 		}};
 	}}
-	setTimeout(() => finish(''), 30000);
+	setTimeout(() => finish(''), 90000);
 }})()"
 	)
 }
@@ -98,39 +98,25 @@ pub fn page_urls_via_webview(manga_id: &str, chapter: &str) -> Result<Vec<String
 fn collect_pages(manga_id: &str, chapter: &str) -> Result<Vec<String>> {
 	let reader_url = format!("{DOMAIN}/manga/{manga_id}/chapter-{chapter}-sub/");
 
-	// Fetch the reader over an ordinary request. Aidoku runs its Cloudflare
-	// handler inside `send`, so by the time this returns the challenge has been
-	// solved — silently, or through the captcha sheet the app shows itself — and
-	// the `cf_clearance` cookie is in the shared store. A headless web view load
-	// of the url would bypass that handler entirely and come back empty.
-	let response = Request::get(&reader_url)?
-		.header("Referer", &format!("{DOMAIN}/"))
-		.header("Accept", "text/html,application/xhtml+xml,*/*;q=0.8")
-		.send()?;
-	let status = response.status_code();
-	if status >= 400 {
-		bail!("The reader returned HTTP {status}");
-	}
-
-	// Load the html that was just fetched rather than re-navigating to the url.
-	// `load_html_blocking` maps to `WKWebView.loadHTMLString`, which runs the
-	// reader's scripts against the shared cookie store, so the clearance cookie
-	// carries over and the reader fetches its pages. The capture hooks are
-	// prepended into the head so they install before those scripts run — the
-	// same shape the Paperback source and the community comix source use.
-	let html = response.get_string()?;
-	let script = format!("<head><script>{}</script>", capture_script());
-	let patched = if html.contains("<head>") {
-		html.replacen("<head>", &script, 1)
-	} else {
-		format!("{script}</head>{html}")
-	};
-
+	// One real navigation, nothing else. The web view renders the reader page
+	// itself, so a Cloudflare check shows up here in the reader and, once the
+	// reader solves it, its scripts fetch the pages. Fetching the page over a
+	// separate request first only made Cloudflare prompt a second time.
 	let web_view = WebView::new();
-	web_view.load_html_blocking(&patched, Some(&reader_url))?;
+	let mut user_script = WebViewUserScript::new(capture_script());
+	user_script.at_document_end = false;
+	user_script.for_main_frame_only = false;
+	web_view.add_user_script(user_script)?;
+	web_view.load(
+		Request::get(&reader_url)?
+			.header("Referer", &format!("{DOMAIN}/"))
+			.header("Accept", "text/html,application/xhtml+xml,*/*;q=0.8"),
+	)?;
 
+	// Long enough for the reader to clear a Cloudflare check and then fetch its
+	// pages before giving up.
 	let mut result = String::new();
-	for _ in 0..60 {
+	for _ in 0..90 {
 		if let Ok(value) = web_view.eval(&format!(
 			"(() => {{
 				const state = window['{RESULT_TOKEN}'];
