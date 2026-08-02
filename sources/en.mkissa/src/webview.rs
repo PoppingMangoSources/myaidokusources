@@ -98,31 +98,26 @@ pub fn page_urls_via_webview(manga_id: &str, chapter: &str) -> Result<Vec<String
 fn collect_pages(manga_id: &str, chapter: &str) -> Result<Vec<String>> {
 	let reader_url = format!("{DOMAIN}/manga/{manga_id}/chapter-{chapter}-sub/");
 
-	// Fetch the reader through an ordinary request first. The app intercepts a
-	// Cloudflare challenge on this request and shows it in the page, then keeps
-	// the clearance cookie; a headless web view load would hide the challenge
-	// and simply come back empty. This is the pattern the community comix source
-	// uses to keep Cloudflare in front of the user.
+	// Fetch the reader over an ordinary request. Aidoku runs its Cloudflare
+	// handler inside `send`, so by the time this returns the challenge has been
+	// solved — silently, or through the captcha sheet the app shows itself — and
+	// the `cf_clearance` cookie is in the shared store. A headless web view load
+	// of the url would bypass that handler entirely and come back empty.
 	let response = Request::get(&reader_url)?
 		.header("Referer", &format!("{DOMAIN}/"))
 		.header("Accept", "text/html,application/xhtml+xml,*/*;q=0.8")
 		.send()?;
 	let status = response.status_code();
-	if status == 403
-		&& response
-			.get_header("cf-mitigated")
-			.is_some_and(|value| value == "challenge")
-	{
-		bail!("Cloudflare is asking for a check — solve it here, then tap retry");
-	} else if status >= 400 {
+	if status >= 400 {
 		bail!("The reader returned HTTP {status}");
 	}
 
-	// Load the html that was just fetched rather than re-navigating to the url:
-	// a fresh navigation inside the headless view would slip past the app's
-	// Cloudflare handling again. The capture hooks are prepended into the head
-	// so they install before the reader's own scripts run, exactly as the
-	// Paperback source and the community comix source do.
+	// Load the html that was just fetched rather than re-navigating to the url.
+	// `load_html_blocking` maps to `WKWebView.loadHTMLString`, which runs the
+	// reader's scripts against the shared cookie store, so the clearance cookie
+	// carries over and the reader fetches its pages. The capture hooks are
+	// prepended into the head so they install before those scripts run — the
+	// same shape the Paperback source and the community comix source use.
 	let html = response.get_string()?;
 	let script = format!("<head><script>{}</script>", capture_script());
 	let patched = if html.contains("<head>") {
