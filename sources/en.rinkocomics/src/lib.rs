@@ -153,18 +153,21 @@ impl Impl for RinkoComics {
 			.map(|items| {
 				items
 					.filter_map(|item| {
-						card_manga(
+						let mut manga = card_manga(
 							params,
 							&item,
 							"",
 							".pinned-comic-title",
 							".comic-thumbnail img",
-						)
+						)?;
+						manga.description = item
+							.select_first(".chapter-badge")
+							.and_then(|badge| badge.text())
+							.map(|text| text.trim().to_string())
+							.filter(|text| !text.is_empty());
+						Some(manga)
 					})
-					.map(|manga| {
-						self.get_manga_update(params, manga.clone(), true, false)
-							.unwrap_or(manga)
-					})
+					.take(12)
 					.collect()
 			})
 			.unwrap_or_default();

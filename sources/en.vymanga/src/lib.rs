@@ -14,12 +14,28 @@ use aidoku::{
 
 const DEFAULT_BASE_URL: &str = "https://vymanga.com";
 const BASE_URL_KEY: &str = "baseUrl";
+const DESKTOP_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
+	(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 fn base_url() -> String {
 	defaults_get::<String>(BASE_URL_KEY)
 		.map(|url| url.trim().trim_end_matches('/').to_string())
 		.filter(|url| url.starts_with("http"))
 		.unwrap_or_else(|| DEFAULT_BASE_URL.into())
+}
+
+fn request(url: &str) -> Result<Request> {
+	let base = base_url();
+	let mut request = Request::get(url)?
+		.header("Referer", &format!("{base}/"))
+		.header("Origin", &base)
+		.header("User-Agent", DESKTOP_USER_AGENT)
+		.header(
+			"Accept",
+			"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+		);
+	request.set_timeout(15.0);
+	Ok(request)
 }
 
 const ADULT_GENRES: &[&str] = &["adult", "hentai", "smut"];
@@ -144,7 +160,7 @@ fn has_next_page(doc: &Document) -> bool {
 }
 
 fn fetch_cards(url: &str) -> Result<MangaPageResult> {
-	let doc = Request::get(url)?.html()?;
+	let doc = request(url)?.html()?;
 	let has_next_page = has_next_page(&doc);
 	Ok(MangaPageResult {
 		entries: parse_cards(&doc),
@@ -231,7 +247,7 @@ impl Source for VyManga {
 		needs_chapters: bool,
 	) -> Result<Manga> {
 		let url = format!("{}/manga/{}", base_url(), manga.key);
-		let doc = Request::get(&url)?.html()?;
+		let doc = request(&url)?.html()?;
 
 		if needs_details {
 			manga.title = doc
@@ -335,7 +351,7 @@ impl Source for VyManga {
 	}
 
 	fn get_page_list(&self, _manga: Manga, chapter: Chapter) -> Result<Vec<Page>> {
-		let doc = Request::get(&chapter.key)?.html()?;
+		let doc = request(&chapter.key)?.html()?;
 		let mut pages = Vec::new();
 		let mut seen: Vec<String> = Vec::new();
 		if let Some(imgs) = doc.select("div.carousel-item[data-page] img, img.lozad, img.d-block") {
@@ -394,16 +410,27 @@ fn parse_relative_date(text: &str) -> Option<i64> {
 impl Home for VyManga {
 	fn get_home(&self) -> Result<HomeLayout> {
 		let mut components: Vec<HomeComponent> = Vec::new();
+		let urls = [
+			browse_url("viewed", 1),
+			browse_url("updated_at", 1),
+			browse_url("scored", 1),
+			browse_url("created_at", 1),
+			base_url(),
+		];
+		let requests: Vec<Request> = urls
+			.iter()
+			.map(|url| request(url))
+			.collect::<Result<Vec<_>>>()?;
+		let mut responses = Request::send_all(requests).into_iter();
+		let mut next_document = || {
+			responses
+				.next()
+				.and_then(|response| response.ok())
+				.and_then(|response| response.get_html().ok())
+		};
 
-		if let Ok(doc) = Request::get(browse_url("viewed", 1))?.html() {
-			let entries: Vec<Manga> = parse_cards(&doc)
-				.into_iter()
-				.take(8)
-				.map(|manga| {
-					self.get_manga_update(manga.clone(), true, false)
-						.unwrap_or(manga)
-				})
-				.collect();
+		if let Some(doc) = next_document() {
+			let entries: Vec<Manga> = parse_cards(&doc).into_iter().take(8).collect();
 			if !entries.is_empty() {
 				components.push(HomeComponent {
 					title: Some("Popular".into()),
@@ -416,7 +443,7 @@ impl Home for VyManga {
 			}
 		}
 
-		if let Ok(doc) = Request::get(browse_url("updated_at", 1))?.html() {
+		if let Some(doc) = next_document() {
 			let entries: Vec<Link> = parse_cards(&doc)
 				.into_iter()
 				.map(|manga| Link {
@@ -443,7 +470,7 @@ impl Home for VyManga {
 		}
 
 		for (title, sort) in [("Top Rated", "scored"), ("Newest", "created_at")] {
-			if let Ok(doc) = Request::get(browse_url(sort, 1))?.html() {
+			if let Some(doc) = next_document() {
 				let entries: Vec<Link> = parse_cards(&doc)
 					.into_iter()
 					.map(|manga| Link {
@@ -478,7 +505,7 @@ impl Home for VyManga {
 			}
 		}
 
-		if let Ok(doc) = Request::get(base_url())?.html() {
+		if let Some(doc) = next_document() {
 			let mut seen: Vec<String> = Vec::new();
 			let genres: Vec<FilterItem> = doc
 				.select("a[href*='/genre/']")
@@ -518,6 +545,9 @@ impl Home for VyManga {
 				});
 			}
 		}
+		if components.is_empty() {
+			bail!("VyManga is currently unavailable from this network");
+		}
 
 		Ok(HomeLayout { components })
 	}
@@ -538,7 +568,7 @@ impl ListingProvider for VyManga {
 
 impl aidoku::ImageRequestProvider for VyManga {
 	fn get_image_request(&self, url: String, _context: Option<PageContext>) -> Result<Request> {
-		Ok(Request::get(url)?.header("Referer", &format!("{}/", base_url())))
+		request(&url)
 	}
 }
 

@@ -22,8 +22,13 @@ pub struct SeriesItem {
 	pub is_nsfw: bool,
 	#[serde(default)]
 	pub cover_url: String,
+	#[serde(default)]
+	pub chapter_count: i32,
 	pub latest_chapter: Option<f32>,
 	pub last_chapter_at: Option<String>,
+	pub rating: Option<f32>,
+	#[serde(default)]
+	pub views: i64,
 }
 
 #[derive(Deserialize)]

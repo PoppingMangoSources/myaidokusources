@@ -77,10 +77,9 @@ struct FeaturedEntry {
 	series_slug: String,
 	#[serde(default)]
 	title: String,
-	thumbnail: Option<String>,
-	banner: Option<String>,
+	protagonist: Option<String>,
 	description: Option<String>,
-	author: Option<String>,
+	total_views: Option<i64>,
 }
 
 #[derive(Deserialize, Default)]
@@ -453,50 +452,64 @@ impl Source for TempleScan {
 impl Home for TempleScan {
 	fn get_home(&self) -> Result<HomeLayout> {
 		let mut components: Vec<HomeComponent> = Vec::new();
+		let requests = vec![
+			Request::get(format!("{API_URL}/banners"))?.header("Referer", &format!("{DOMAIN}/")),
+			Request::get(format!("{API_URL}/topSeries"))?.header("Referer", &format!("{DOMAIN}/")),
+			Request::get(format!("{DOMAIN}/"))?
+				.header("RSC", "1")
+				.header("Referer", &format!("{DOMAIN}/")),
+		];
+		let mut responses = Request::send_all(requests).into_iter();
+		let banners_response = responses.next();
+		let trending_response = responses.next();
+		let home_response = responses.next();
 
-		if let Ok(response) = Request::get(format!("{API_URL}/banners"))?
-			.header("Referer", &format!("{DOMAIN}/"))
-			.send() && let Ok(banners) = response.get_json_owned::<Vec<FeaturedEntry>>()
+		if let Some(Ok(response)) = banners_response
+			&& let Ok(banners) = response.get_json_owned::<Vec<FeaturedEntry>>()
 		{
-			let links: Vec<Link> = banners
+			let entries: Vec<Manga> = banners
 				.into_iter()
 				.filter_map(|entry| {
-					let image = image_url(entry.banner.as_deref())?;
-					let manga = Manga {
+					let cover = image_url(entry.protagonist.as_deref())?;
+					let mut description = entry.description.as_deref().map(strip_html);
+					if let Some(views) = entry.total_views.filter(|views| *views > 0) {
+						let views = if views >= 1_000_000 {
+							format!("{:.1}M views", views as f64 / 1_000_000.0)
+						} else if views >= 1_000 {
+							format!("{:.1}K views", views as f64 / 1_000.0)
+						} else {
+							format!("{views} views")
+						};
+						description = Some(match description {
+							Some(text) if !text.is_empty() => format!("{views}\n{text}"),
+							_ => views,
+						});
+					}
+					Some(Manga {
 						key: entry.series_slug,
 						title: entry.title,
-						cover: image_url(entry.thumbnail.as_deref()),
-						description: entry.description.as_deref().map(strip_html),
-						authors: entry.author.map(|a| vec![a]),
+						cover: Some(cover),
+						description,
 						content_rating: ContentRating::Safe,
 						viewer: Viewer::Webtoon,
 						..Default::default()
-					};
-					Some(Link {
-						title: manga.title.clone(),
-						subtitle: manga.description.clone(),
-						image_url: Some(image),
-						value: Some(LinkValue::Manga(manga)),
 					})
 				})
 				.collect();
-			if !links.is_empty() {
+			if !entries.is_empty() {
 				components.push(HomeComponent {
 					title: Some("Featured".into()),
 					subtitle: None,
-					value: HomeComponentValue::ImageScroller {
-						links,
+					value: HomeComponentValue::BigScroller {
+						entries,
 						auto_scroll_interval: Some(6.0),
-						width: None,
-						height: None,
 					},
 				});
 			}
 		}
 
-		if let Ok(response) = Request::get(format!("{API_URL}/topSeries"))?
-			.header("Referer", &format!("{DOMAIN}/"))
-			.send() && let Ok(trending) = response.get_json_owned::<TrendingResponse>()
+		if let Some(Ok(response)) = trending_response
+			&& let Ok(trending) = response.get_json_owned::<TrendingResponse>()
 		{
 			for (title, entries) in [
 				("Trending Today", trending.day),
@@ -540,7 +553,9 @@ impl Home for TempleScan {
 		}
 
 		// The homepage stream carries the newest series and the update feed.
-		if let Ok(payload) = fetch_rsc(&format!("{DOMAIN}/")) {
+		if let Some(Ok(response)) = home_response
+			&& let Ok(payload) = response.get_string()
+		{
 			let updates: Vec<BrowseSeries> =
 				extract_by_key(&payload, "series", |items: &Vec<BrowseSeries>| {
 					items.first().map(|f| f.chapter.is_some()).unwrap_or(false)

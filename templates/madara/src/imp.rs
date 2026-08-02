@@ -397,9 +397,34 @@ pub trait Impl {
 	}
 
 	fn get_home(&self, params: &Params) -> Result<HomeLayout> {
-		let html = self
-			.modify_request(params, Request::get(&params.base_url)?)?
-			.html()?;
+		let mut home_requests = vec![self.modify_request(params, Request::get(&params.base_url)?)?];
+		let mut section_specs = Vec::new();
+		for (title, id, index, ranked) in [
+			("Relevance", "relevance", 0, false),
+			("Top Rated", "top_rated", 3, true),
+			("Trending", "trending", 4, false),
+		] {
+			let Ok(request) = helpers::get_search_request(
+				params,
+				None,
+				1,
+				vec![FilterValue::Sort {
+					id: "order".into(),
+					index,
+					ascending: false,
+				}],
+			)
+			.and_then(|request| self.modify_request(params, request)) else {
+				continue;
+			};
+			section_specs.push((title, id, ranked));
+			home_requests.push(request);
+		}
+		let mut home_responses = Request::send_all(home_requests).into_iter();
+		let html = home_responses
+			.next()
+			.ok_or(error!("Missing homepage response"))??
+			.get_html()?;
 
 		let mut components = Vec::new();
 
@@ -459,14 +484,7 @@ pub trait Impl {
 				.map(|els| els.filter_map(|el| parse_manga(&el)).collect::<Vec<_>>())
 				.unwrap_or_default();
 			if !items.is_empty() {
-				let items: Vec<Manga> = items
-					.into_iter()
-					.take(8)
-					.map(|manga| {
-						self.get_manga_update(params, manga.clone(), true, false)
-							.unwrap_or(manga)
-					})
-					.collect();
+				let items: Vec<Manga> = items.into_iter().take(8).collect();
 				components.push(HomeComponent {
 					title,
 					subtitle: None,
@@ -520,25 +538,19 @@ pub trait Impl {
 			}
 		}
 
-		for (title, id, index, ranked) in [
-			("Top Daily", "top_daily", 5, true),
-			("Relevance", "relevance", 0, false),
-			("Top Rated", "top_rated", 3, true),
-			("Trending", "trending", 4, false),
-		] {
-			let Ok(page) = self.get_search_manga_list(
-				params,
-				None,
-				1,
-				vec![FilterValue::Sort {
-					id: "order".into(),
-					index,
-					ascending: false,
-				}],
-			) else {
+		for ((title, id, ranked), response) in section_specs.into_iter().zip(home_responses) {
+			let Ok(html) = response.and_then(|response| response.get_html()) else {
 				continue;
 			};
-			let entries: Vec<Link> = page.entries.into_iter().map(Into::into).collect();
+			let entries: Vec<Link> = html
+				.select(&params.search_manga_selector)
+				.map(|items| {
+					items
+						.filter_map(|item| self.parse_manga_element(params, item))
+						.map(Into::into)
+						.collect()
+				})
+				.unwrap_or_default();
 			if entries.is_empty() {
 				continue;
 			}
