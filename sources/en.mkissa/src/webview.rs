@@ -77,7 +77,49 @@ fn capture_script() -> String {
 			return originalOpen.apply(this, args);
 		}};
 	}}
-	setTimeout(() => finish(''), 90000);
+
+	// Fallback: once the reader renders its pages, read the image srcs straight
+	// off the document. This does not depend on the shape of the api response,
+	// only on the pages the reader actually shows.
+	let last = -1;
+	let stable = 0;
+	const scrape = () => {{
+		const seen = {{}};
+		const out = [];
+		const images = document.querySelectorAll('img');
+		for (let i = 0; i < images.length; i++) {{
+			const src = images[i].currentSrc || images[i].getAttribute('src') || '';
+			if (!src || src.indexOf('data:') === 0) continue;
+			if (src.indexOf('youtube-anime.com') === -1) continue;
+			if (src.indexOf('aln.youtube-anime.com') !== -1) continue;
+			if (seen[src]) continue;
+			seen[src] = 1;
+			out.push(src);
+		}}
+		return out;
+	}};
+	const tick = setInterval(() => {{
+		if (state.settled) {{ clearInterval(tick); return; }}
+		window.scrollTo(0, document.body.scrollHeight);
+		const urls = scrape();
+		stable = urls.length > 0 && urls.length === last ? stable + 1 : 0;
+		last = urls.length;
+		if (urls.length > 0 && stable >= 3) {{
+			clearInterval(tick);
+			finish(JSON.stringify({{ chapterPages: {{ edges: [{{ pictureUrls: urls }}] }} }}));
+		}}
+	}}, 300);
+
+	setTimeout(() => {{
+		clearInterval(tick);
+		if (state.settled) return;
+		const urls = scrape();
+		if (urls.length > 0) {{
+			finish(JSON.stringify({{ chapterPages: {{ edges: [{{ pictureUrls: urls }}] }} }}));
+		}} else {{
+			finish('');
+		}}
+	}}, 90000);
 }})()"
 	)
 }
