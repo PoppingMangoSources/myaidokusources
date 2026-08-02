@@ -10,7 +10,6 @@ use aidoku::{
 };
 use serde_json::Value;
 
-mod crypto;
 mod models;
 mod network;
 mod parsers;
@@ -18,7 +17,7 @@ mod settings;
 mod webview;
 
 use models::*;
-use network::{fetch_chapter_pages_via_api, make_request};
+use network::make_request;
 use parsers::*;
 
 struct Mkissa;
@@ -261,16 +260,7 @@ impl Source for Mkissa {
 	}
 
 	fn get_page_list(&self, manga: Manga, chapter: Chapter) -> Result<Vec<Page>> {
-		// Ask the signed api first. It is a plain request, so a challenge reaches
-		// the app and is shown in the page; the web view is the quiet fallback.
-		let quality = settings::image_quality();
-		let mut urls = fetch_chapter_pages_via_api(&manga.key, &chapter.key)?
-			.map(|pages| crate::parsers::parse_page_urls(&pages, &quality))
-			.unwrap_or_default();
-
-		if urls.is_empty() {
-			urls = webview::page_urls_via_webview(&manga.key, &chapter.key)?;
-		}
+		let urls = webview::page_urls_via_webview(&manga.key, &chapter.key)?;
 		Ok(urls
 			.into_iter()
 			.map(|url| Page {

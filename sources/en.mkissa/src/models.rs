@@ -12,8 +12,6 @@ pub const LIMIT: i32 = 20;
 
 pub const POPULAR_QUERY: &str = "query($type: VaildPopularTypeEnumType!, $size: Int!, $page: Int, $dateRange: Int, $allowAdult: Boolean, $allowUnknown: Boolean) {\n  queryPopular(type: $type, size: $size, dateRange: $dateRange, page: $page, allowAdult: $allowAdult, allowUnknown: $allowUnknown) {\n    recommendations {\n      anyCard { _id name thumbnail englishName nativeName score availableChapters }\n      pageStatus { views }\n    }\n  }\n}";
 
-pub const PAGES_QUERY: &str = "query($mangaId: String!, $translationType: VaildTranslationTypeMangaEnumType!, $chapterString: String!, $limit: Int!, $offset: Int) {\n  chapterPages(mangaId: $mangaId, translationType: $translationType, chapterString: $chapterString, limit: $limit, offset: $offset) {\n    edges { pictureUrlHead pictureUrls }\n    manga { _id countryOfOrigin }\n  }\n}";
-
 pub const RANDOM_QUERY: &str = "query($format: String!, $allowAdult: Boolean) {\n  queryRandomRecommendation(format: $format, allowAdult: $allowAdult) {\n    _id name thumbnail englishName\n  }\n}";
 
 pub const SEARCH_QUERY: &str = "query($search: SearchInput, $size: Int, $page: Int, $translationType: VaildTranslationTypeMangaEnumType, $countryOrigin: VaildCountryOriginEnumType) {\n  mangas(search: $search, limit: $size, page: $page, translationType: $translationType, countryOrigin: $countryOrigin) {\n    edges { _id name thumbnail englishName }\n  }\n}";
@@ -214,11 +212,3 @@ pub const GENRE_OPTIONS: &[&str] = &[
 	"Thriller",
 	"Tragedy",
 ];
-
-/// Key material the reader signs its page requests with.
-#[derive(Deserialize)]
-pub struct SigningBootstrap {
-	pub epoch: i64,
-	#[serde(rename = "partB")]
-	pub part_b: String,
-}
