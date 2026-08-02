@@ -167,12 +167,14 @@ fn item_to_link(item: CatalogItem) -> Link {
 	}
 }
 
-fn fetch_catalog(query: &str) -> Result<CatalogResponse> {
-	Request::get(format!("{DOMAIN}/api/catalog?{query}"))?
+fn catalog_request(query: &str) -> Result<Request> {
+	Ok(Request::get(format!("{DOMAIN}/api/catalog?{query}"))?
 		.header("Referer", &format!("{DOMAIN}/"))
-		.header("Accept", "application/json, text/plain, */*")
-		.send()?
-		.get_json_owned()
+		.header("Accept", "application/json, text/plain, */*"))
+}
+
+fn fetch_catalog(query: &str) -> Result<CatalogResponse> {
+	catalog_request(query)?.send()?.get_json_owned()
 }
 
 fn catalog_page_query(query: &str, page: i32) -> Result<MangaPageResult> {
@@ -192,17 +194,47 @@ fn listing(id: &str, name: &str) -> Option<Listing> {
 	})
 }
 
+/// The rows below the banner, in display order.
+const HOME_ROWS: [(&str, &str, &str, bool); 9] = [
+	("Latest Updates", "updated_at", "sort=updated_at", false),
+	// The site splits its top series by where they come from.
+	(
+		"Top Manhwa",
+		"top_manhwa",
+		"sort=real_views&type=Manhwa",
+		false,
+	),
+	(
+		"Top Manga",
+		"top_manga",
+		"sort=real_views&type=Manga",
+		false,
+	),
+	(
+		"Top Manhua",
+		"top_manhua",
+		"sort=real_views&type=Manhua",
+		false,
+	),
+	("New Season", "new_season", "sort=created_at", false),
+	("Most Liked", "most_liked", "sort=likes", false),
+	(
+		"Best Ongoings",
+		"best_ongoing",
+		"sort=rating&status=Ongoing",
+		false,
+	),
+	("In the Trend", "trend", "sort=by_views", false),
+	("Popular Today", "popular_today", "sort=votes", true),
+];
+
 fn push_scroller(
 	components: &mut Vec<HomeComponent>,
 	title: &str,
 	id: &str,
-	query: &str,
+	entries: Vec<Link>,
 	ranked: bool,
 ) {
-	let Ok(data) = fetch_catalog(&format!("{query}&page=1")) else {
-		return;
-	};
-	let entries: Vec<Link> = data.items.into_iter().map(item_to_link).collect();
 	if entries.is_empty() {
 		return;
 	}
@@ -429,41 +461,44 @@ impl Home for OManga {
 	fn get_home(&self) -> Result<HomeLayout> {
 		let mut components: Vec<HomeComponent> = Vec::new();
 
-		if let Ok(data) = fetch_catalog("sort=real_views&page=1") {
-			let entries: Vec<Manga> = data.items.into_iter().take(10).map(item_to_manga).collect();
-			if !entries.is_empty() {
-				components.push(HomeComponent {
-					title: Some("Popular".into()),
-					subtitle: None,
-					value: HomeComponentValue::BigScroller {
-						entries,
-						auto_scroll_interval: Some(6.0),
-					},
-				});
-			}
+		// Every row is its own catalog query, so they all go out at once
+		// instead of stacking their latencies.
+		let mut queries = vec![String::from("sort=real_views&page=1")];
+		queries.extend(
+			HOME_ROWS
+				.iter()
+				.map(|(_, _, query, _)| format!("{query}&page=1")),
+		);
+		let requests = queries
+			.iter()
+			.map(|query| catalog_request(query))
+			.collect::<Result<Vec<_>>>()?;
+		let mut responses = Request::send_all(requests).into_iter();
+
+		let banner: Vec<Manga> = responses
+			.next()
+			.and_then(|response| response.ok())
+			.and_then(|response| response.get_json_owned::<CatalogResponse>().ok())
+			.map(|data| data.items.into_iter().take(10).map(item_to_manga).collect())
+			.unwrap_or_default();
+		if !banner.is_empty() {
+			components.push(HomeComponent {
+				title: Some("Popular".into()),
+				subtitle: None,
+				value: HomeComponentValue::BigScroller {
+					entries: banner,
+					auto_scroll_interval: Some(6.0),
+				},
+			});
 		}
 
-		push_scroller(
-			&mut components,
-			"Latest Updates",
-			"updated_at",
-			"sort=updated_at",
-			false,
-		);
-
-		for (title, id, query, ranked) in [
-			("New Season", "new_season", "sort=created_at", false),
-			("Most Liked", "most_liked", "sort=likes", false),
-			(
-				"Best Ongoings",
-				"best_ongoing",
-				"sort=rating&status=Ongoing",
-				false,
-			),
-			("In the Trend", "trend", "sort=by_views", false),
-			("Popular Today", "popular_today", "sort=votes", true),
-		] {
-			push_scroller(&mut components, title, id, query, ranked);
+		for ((title, id, _, ranked), response) in HOME_ROWS.iter().zip(responses) {
+			let entries: Vec<Link> = response
+				.ok()
+				.and_then(|response| response.get_json_owned::<CatalogResponse>().ok())
+				.map(|data| data.items.into_iter().map(item_to_link).collect())
+				.unwrap_or_default();
+			push_scroller(&mut components, title, id, entries, *ranked);
 		}
 
 		Ok(HomeLayout { components })
@@ -481,6 +516,9 @@ impl ListingProvider for OManga {
 			"best_ongoing" => "sort=rating&status=Ongoing",
 			"trend" => "sort=by_views",
 			"popular_today" => "sort=votes",
+			"top_manhwa" => "sort=real_views&type=Manhwa",
+			"top_manga" => "sort=real_views&type=Manga",
+			"top_manhua" => "sort=real_views&type=Manhua",
 			_ => bail!("Unknown listing"),
 		};
 		catalog_page_query(query, page)

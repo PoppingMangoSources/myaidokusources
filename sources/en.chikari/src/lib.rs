@@ -99,19 +99,28 @@ fn take_home_row(rows: &mut Vec<HomeRow>, slug: &str) -> Vec<SeriesItem> {
 }
 
 /// The rows the home screen is built from, in display order.
-const HOME_ROWS: [HomeRowSpec; 7] = [
-	HomeRowSpec::new("Popular Manga", "popular", None, Some("manga")),
-	HomeRowSpec::new("Popular Manhwa", "popular", None, Some("manhwa")),
-	HomeRowSpec::new("Popular Manhua", "popular", None, Some("manhua")),
+const HOME_ROWS: [HomeRowSpec; 8] = [
+	HomeRowSpec::new("Popular Manga", "popular", None, Some("manga"), false),
+	HomeRowSpec::new("Popular Manhwa", "popular", None, Some("manhwa"), false),
+	HomeRowSpec::new("Popular Manhua", "popular", None, Some("manhua"), false),
 	HomeRowSpec::new(
 		"Most Bookmarked This Month",
 		"most_bookmarked",
 		Some("month"),
 		None,
+		true,
 	),
-	HomeRowSpec::new("Top Rated Manga", "top_rated", None, Some("manga")),
-	HomeRowSpec::new("Top Rated Manhwa", "top_rated", None, Some("manhwa")),
-	HomeRowSpec::new("Top Rated Manhua", "top_rated", None, Some("manhua")),
+	HomeRowSpec::new("Top Rated Manga", "top_rated", None, Some("manga"), false),
+	HomeRowSpec::new("Top Rated Manhwa", "top_rated", None, Some("manhwa"), false),
+	HomeRowSpec::new("Top Rated Manhua", "top_rated", None, Some("manhua"), false),
+	// The site offers day/week/month; the widest window makes the steadiest row.
+	HomeRowSpec::new(
+		"Trending This Month",
+		"trending",
+		Some("month"),
+		None,
+		false,
+	),
 ];
 
 struct HomeRowSpec {
@@ -119,6 +128,7 @@ struct HomeRowSpec {
 	sort: &'static str,
 	period: Option<&'static str>,
 	kind: Option<&'static str>,
+	ranked: bool,
 }
 
 impl HomeRowSpec {
@@ -127,12 +137,14 @@ impl HomeRowSpec {
 		sort: &'static str,
 		period: Option<&'static str>,
 		kind: Option<&'static str>,
+		ranked: bool,
 	) -> Self {
 		Self {
 			title,
 			sort,
 			period,
 			kind,
+			ranked,
 		}
 	}
 
@@ -497,7 +509,7 @@ impl Home for Chikari {
 				title: Some(row.title.into()),
 				subtitle: None,
 				// The bookmark row is a ranked countdown; the rest are shelves.
-				value: if row.period.is_some() {
+				value: if row.ranked {
 					HomeComponentValue::MangaList {
 						ranking: true,
 						page_size: Some(10),

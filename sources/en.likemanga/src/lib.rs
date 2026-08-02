@@ -653,6 +653,40 @@ impl Home for LikeManga {
 			}
 		}
 
+		// The site ranks by day, week and month; the widest window is the one
+		// worth showing, with the all-time chart under it.
+		for (title, id, ranked) in [
+			("Top This Month", "top-month", true),
+			("Top of All Time", "top-manga", false),
+		] {
+			let Ok(result) = fetch_cards(&search_url("", id, "", "", &[], 1)) else {
+				continue;
+			};
+			let entries: Vec<Link> = result.entries.into_iter().map(manga_link).collect();
+			if entries.is_empty() {
+				continue;
+			}
+			let listing = Some(Listing {
+				id: id.into(),
+				name: title.into(),
+				..Default::default()
+			});
+			components.push(HomeComponent {
+				title: Some(title.into()),
+				subtitle: None,
+				value: if ranked {
+					HomeComponentValue::MangaList {
+						ranking: true,
+						page_size: Some(10),
+						entries,
+						listing,
+					}
+				} else {
+					HomeComponentValue::Scroller { entries, listing }
+				},
+			});
+		}
+
 		Ok(HomeLayout { components })
 	}
 }
