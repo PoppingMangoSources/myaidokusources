@@ -2,12 +2,7 @@ use aidoku::alloc::{String, Vec};
 use serde::Deserialize;
 
 pub const DOMAIN: &str = "https://mkissa.to";
-pub const API_URL: &str = "https://api.allanime.day/api";
-
-/// The api only answers for the front end it belongs to, so requests keep
-/// pointing at that origin regardless of which mirror the reader browses.
-pub const API_REFERER: &str = "https://allmanga.to";
-pub const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36";
+pub const API_URL: &str = "https://api.mkissa.net/api";
 
 pub const THUMBNAIL_CDN: &str = "https://wp.youtube-anime.com/aln.youtube-anime.com/";
 pub const IMAGE_CDN: &str = "https://wp.youtube-anime.com";
@@ -71,7 +66,6 @@ pub struct MangaCard {
 	pub available_chapters_detail: Option<AvailableChaptersDetail>,
 	#[serde(rename = "lastChapterDate")]
 	pub last_chapter_date: Option<LastChapterDate>,
-	pub score: Option<f32>,
 }
 
 impl MangaCard {
@@ -87,13 +81,6 @@ impl MangaCard {
 pub struct Recommendation {
 	#[serde(rename = "anyCard")]
 	pub any_card: Option<MangaCard>,
-	#[serde(rename = "pageStatus")]
-	pub page_status: Option<PageStatus>,
-}
-
-#[derive(Deserialize)]
-pub struct PageStatus {
-	pub views: Option<i64>,
 }
 
 #[derive(Deserialize)]
@@ -197,3 +184,31 @@ pub struct ChapterPageEdge {
 pub struct ChapterPages {
 	pub edges: Vec<ChapterPageEdge>,
 }
+
+pub const GENRE_OPTIONS: &[&str] = &[
+	"Action",
+	"Adventure",
+	"Comedy",
+	"Drama",
+	"Ecchi",
+	"Fantasy",
+	"Harem",
+	"Historical",
+	"Horror",
+	"Isekai",
+	"Josei",
+	"Martial Arts",
+	"Mecha",
+	"Mystery",
+	"Romance",
+	"School",
+	"Sci-Fi",
+	"Seinen",
+	"Shoujo",
+	"Shounen",
+	"Slice of Life",
+	"Sports",
+	"Supernatural",
+	"Thriller",
+	"Tragedy",
+];

@@ -1,8 +1,8 @@
 #![no_std]
 use aidoku::{
-	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterValue, Home, HomeComponent,
-	HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider, Manga,
-	MangaPageResult, MangaWithChapter, Page, PageContent, PageContext, Result, Source,
+	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterItem, FilterValue, Home,
+	HomeComponent, HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider,
+	Manga, MangaPageResult, MangaWithChapter, Page, PageContent, PageContext, Result, Source,
 	alloc::{String, Vec, string::ToString, vec},
 	imports::net::Request,
 	imports::std::send_partial_result,
@@ -45,57 +45,23 @@ fn json_string_array(values: Vec<String>) -> Value {
 	}
 }
 
-fn format_count(value: i64) -> String {
-	if value >= 1_000_000 {
-		format!("{:.1}M", value as f64 / 1_000_000.0)
-	} else if value >= 1_000 {
-		format!("{:.1}K", value as f64 / 1_000.0)
-	} else {
-		value.to_string()
-	}
-}
-
-/// A one-line blurb from the score and view count the cards already carry.
-fn card_summary(score: Option<f32>, views: Option<i64>) -> Option<String> {
-	let mut parts: Vec<String> = Vec::new();
-	if let Some(score) = score.filter(|score| *score > 0.0) {
-		parts.push(format!("★ {score:.1}"));
-	}
-	if let Some(views) = views.filter(|views| *views > 0) {
-		parts.push(format!("{} views", format_count(views)));
-	}
-	(!parts.is_empty()).then(|| parts.join(" · "))
-}
-
 fn card_to_manga(card: MangaCard) -> Manga {
 	let title = decode_entities(card.display_title());
 	let cover = parse_thumbnail_url(card.thumbnail.as_deref());
-	let description = card_summary(card.score, None);
 	Manga {
 		key: card.id,
 		title,
 		cover: Some(cover),
-		description,
 		content_rating: source_content_rating(),
 		..Default::default()
 	}
-}
-
-/// Same as `card_to_manga`, but keeps the view count the recommendation adds.
-fn recommendation_to_manga(rec: Recommendation) -> Option<Manga> {
-	let views = rec.page_status.as_ref().and_then(|status| status.views);
-	let card = rec.any_card?;
-	let score = card.score;
-	let mut manga = card_to_manga(card);
-	manga.description = card_summary(score, views);
-	Some(manga)
 }
 
 fn card_to_link(card: MangaCard) -> Link {
 	let manga = card_to_manga(card);
 	Link {
 		title: manga.title.clone(),
-		subtitle: manga.description.clone(),
+		subtitle: None,
 		image_url: manga.cover.clone(),
 		value: Some(LinkValue::Manga(manga)),
 	}
@@ -120,7 +86,8 @@ fn popular_listing(date_range: i32, page: i32) -> Result<MangaPageResult> {
 	let (recommendations, has_next_page) = popular_cards(date_range, page)?;
 	let entries = recommendations
 		.into_iter()
-		.filter_map(recommendation_to_manga)
+		.filter_map(|rec| rec.any_card)
+		.map(card_to_manga)
 		.collect();
 	Ok(MangaPageResult {
 		entries,
@@ -344,14 +311,15 @@ impl Home for Mkissa {
 	fn get_home(&self) -> Result<HomeLayout> {
 		let mut components: Vec<HomeComponent> = Vec::new();
 
-		if let Ok((recommendations, _)) = popular_cards(1, 1) {
+		if let Ok((recommendations, _)) = popular_cards(0, 1) {
 			let entries: Vec<Manga> = recommendations
 				.into_iter()
-				.filter_map(recommendation_to_manga)
+				.filter_map(|rec| rec.any_card)
+				.map(card_to_manga)
 				.collect();
 			if !entries.is_empty() {
 				components.push(HomeComponent {
-					title: Some("Popular Today".into()),
+					title: Some("Popular".into()),
 					subtitle: None,
 					value: HomeComponentValue::BigScroller {
 						entries,
@@ -361,37 +329,27 @@ impl Home for Mkissa {
 			}
 		}
 
-		// Week and month are shelves; the all-time chart closes them out as a
-		// ranked countdown, the way this source was originally laid out.
-		for (title, id, date_range, ranked) in [
-			("Popular This Week", "popular_week", 7, false),
-			("Popular This Month", "popular_month", 30, false),
-			("Popular All Time", "popular_all_time", 0, true),
+		for (title, id, date_range) in [
+			("Popular This Week", "popular_week", 7),
+			("Popular This Month", "popular_month", 30),
 		] {
 			if let Ok((recommendations, _)) = popular_cards(date_range, 1) {
 				let entries: Vec<Link> = recommendations
 					.into_iter()
-					.filter_map(recommendation_to_manga)
-					.map(Into::into)
+					.filter_map(|rec| rec.any_card)
+					.map(card_to_link)
 					.collect();
 				if !entries.is_empty() {
-					let listing = Some(Listing {
-						id: id.into(),
-						name: title.into(),
-						..Default::default()
-					});
 					components.push(HomeComponent {
 						title: Some(title.into()),
 						subtitle: None,
-						value: if ranked {
-							HomeComponentValue::MangaList {
-								ranking: true,
-								page_size: Some(10),
-								entries,
-								listing,
-							}
-						} else {
-							HomeComponentValue::Scroller { entries, listing }
+						value: HomeComponentValue::Scroller {
+							entries,
+							listing: Some(Listing {
+								id: id.into(),
+								name: title.into(),
+								..Default::default()
+							}),
 						},
 					});
 				}
@@ -465,6 +423,23 @@ impl Home for Mkissa {
 				});
 			}
 		}
+
+		let genre_items: Vec<FilterItem> = GENRE_OPTIONS
+			.iter()
+			.map(|genre| FilterItem {
+				title: (*genre).into(),
+				values: Some(vec![FilterValue::MultiSelect {
+					id: "genres".into(),
+					included: vec![(*genre).into()],
+					excluded: Vec::new(),
+				}]),
+			})
+			.collect();
+		components.push(HomeComponent {
+			title: Some("Genres".into()),
+			subtitle: None,
+			value: HomeComponentValue::Filters(genre_items),
+		});
 
 		Ok(HomeLayout { components })
 	}
