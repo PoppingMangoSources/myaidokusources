@@ -39,9 +39,14 @@ fn home_updates() -> Vec<MangaWithChapter> {
 	let updates: Vec<HomeUpdate> =
 		extract_at_marker(&payload, "\"updates\":[", "\"updates\":".len()).unwrap_or_default();
 
+	// The feed carries hundreds of rows; a carousel only needs the newest few.
+	const MAX_UPDATES: usize = 30;
 	let mut seen: Vec<String> = Vec::new();
 	let mut entries = Vec::new();
 	for update in updates {
+		if entries.len() >= MAX_UPDATES {
+			break;
+		}
 		let Some(item) = update.manga else { continue };
 		let Some(number) = update.number else {
 			continue;
