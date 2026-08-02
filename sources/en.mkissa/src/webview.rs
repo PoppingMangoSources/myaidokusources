@@ -2,7 +2,7 @@ use crate::models::*;
 use aidoku::{
 	Result,
 	alloc::{String, Vec},
-	imports::js::{WebView, WebViewUserScript},
+	imports::js::WebView,
 	imports::net::Request,
 	imports::std::sleep,
 	prelude::*,
@@ -118,18 +118,21 @@ fn collect_pages(manga_id: &str, chapter: &str) -> Result<Vec<String>> {
 		bail!("The reader returned HTTP {status}");
 	}
 
-	// The clearance cookie is shared with the web view, so the reader now loads
-	// without a fresh challenge and its scripts can fetch the pages.
+	// Load the html that was just fetched rather than re-navigating to the url:
+	// a fresh navigation inside the headless view would slip past the app's
+	// Cloudflare handling again. The capture hooks are prepended into the head
+	// so they install before the reader's own scripts run, exactly as the
+	// Paperback source and the community comix source do.
+	let html = response.get_string()?;
+	let script = format!("<head><script>{}</script>", capture_script());
+	let patched = if html.contains("<head>") {
+		html.replacen("<head>", &script, 1)
+	} else {
+		format!("{script}</head>{html}")
+	};
+
 	let web_view = WebView::new();
-	let mut user_script = WebViewUserScript::new(capture_script());
-	user_script.at_document_end = false;
-	user_script.for_main_frame_only = false;
-	web_view.add_user_script(user_script)?;
-	web_view.load(
-		Request::get(&reader_url)?
-			.header("Referer", &format!("{DOMAIN}/"))
-			.header("Accept", "text/html,application/xhtml+xml,*/*;q=0.8"),
-	)?;
+	web_view.load_html_blocking(&patched, Some(&reader_url))?;
 
 	let mut result = String::new();
 	for _ in 0..60 {
