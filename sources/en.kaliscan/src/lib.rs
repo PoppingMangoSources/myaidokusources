@@ -57,32 +57,47 @@ fn first_number(text: &str) -> Option<f32> {
 	number.trim_matches('.').parse().ok()
 }
 
-/// Resolves the release stamps the cards use, which are relative more often
-/// than not.
+/// Resolves the release stamps the cards use.
+///
+/// They are usually relative and written without an `ago`, as in `10 minutes`
+/// or `1 week`, so the unit is matched on its stem.
 fn relative_date(text: &str) -> Option<i64> {
-	let lowered = text.trim().to_lowercase();
-	if lowered.is_empty() {
+	let trimmed = text.trim();
+	if trimmed.is_empty() {
 		return None;
 	}
-	if let Some(rest) = lowered.strip_suffix("ago") {
-		let mut parts = rest.split_whitespace();
-		let amount: i64 = parts.next()?.parse().ok()?;
-		let seconds = match parts.next()?.trim_end_matches('s') {
-			"second" => 1,
-			"minute" | "min" => 60,
-			"hour" | "hr" => 3600,
-			"day" => 86400,
-			"week" => 604800,
-			"month" => 2592000,
-			"year" => 31536000,
-			_ => return None,
+
+	let lowered = trimmed.to_lowercase();
+	let mut words = lowered.trim_end_matches("ago").split_whitespace();
+	if let Some(amount) = words.next().and_then(|word| word.parse::<i64>().ok())
+		&& let Some(unit) = words.next()
+	{
+		let seconds = if unit.starts_with("second") {
+			Some(1)
+		} else if unit.starts_with("min") {
+			Some(60)
+		} else if unit.starts_with("hour") || unit.starts_with("hr") {
+			Some(3600)
+		} else if unit.starts_with("day") {
+			Some(86400)
+		} else if unit.starts_with("week") {
+			Some(604800)
+		} else if unit.starts_with("month") {
+			Some(2592000)
+		} else if unit.starts_with("year") {
+			Some(31536000)
+		} else {
+			None
 		};
-		return Some(current_date() - amount * seconds);
+		if let Some(seconds) = seconds {
+			return Some(current_date() - amount * seconds);
+		}
 	}
+
 	parse_date(&lowered, "yyyy-MM-dd'T'HH:mm:ss")
 		.or_else(|| parse_date(&lowered, "yyyy-MM-dd"))
-		.or_else(|| parse_date(text.trim(), "MMM d, yyyy"))
-		.or_else(|| parse_date(text.trim(), "MMMM d, yyyy"))
+		.or_else(|| parse_date(trimmed, "MMM d, yyyy"))
+		.or_else(|| parse_date(trimmed, "MMMM d, yyyy"))
 }
 
 fn parse_home_cards(document: &Document, selector: &str, base: &str) -> Vec<Manga> {

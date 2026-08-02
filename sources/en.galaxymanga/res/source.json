@@ -2,7 +2,7 @@
 	"info": {
 		"id": "en.galaxymanga",
 		"name": "Galaxy Manga",
-		"version": 3,
+		"version": 4,
 		"url": "https://galaxymanga.io",
 		"contentRating": 1,
 		"languages": ["en"],

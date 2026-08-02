@@ -59,24 +59,31 @@ fn is_locked(element: &Element) -> bool {
 		.is_some_and(|class| class.contains("locked-chapter") || class.contains("is-locked"))
 }
 
-/// Resolves a relative date such as `3 days ago` against the current time.
+/// Resolves a relative date such as `3 days ago` or a bare `10 minutes`.
+///
+/// The `ago` suffix is optional and the unit is matched on its stem, matching
+/// how the site writes its stamps.
 fn relative_date(text: &str) -> Option<i64> {
 	let lowered = text.trim().to_lowercase();
-	if !lowered.ends_with("ago") {
+	let mut words = lowered.trim_end_matches("ago").split_whitespace();
+	let amount = words.next().and_then(|word| word.parse::<i64>().ok())?;
+	let unit = words.next()?;
+	let seconds = if unit.starts_with("second") {
+		1
+	} else if unit.starts_with("min") {
+		60
+	} else if unit.starts_with("hour") || unit.starts_with("hr") {
+		3600
+	} else if unit.starts_with("day") {
+		86400
+	} else if unit.starts_with("week") {
+		604800
+	} else if unit.starts_with("month") {
+		2592000
+	} else if unit.starts_with("year") {
+		31536000
+	} else {
 		return None;
-	}
-	let mut parts = lowered.split_whitespace();
-	let amount: i64 = parts.next()?.parse().ok()?;
-	let unit = parts.next()?;
-	let seconds = match unit.trim_end_matches('s') {
-		"second" => 1,
-		"minute" => 60,
-		"hour" => 3600,
-		"day" => 86400,
-		"week" => 604800,
-		"month" => 2592000,
-		"year" => 31536000,
-		_ => return None,
 	};
 	Some(current_date() - amount * seconds)
 }

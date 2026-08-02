@@ -11,10 +11,53 @@ use aidoku::{
 	imports::{
 		html::{Document, Html},
 		net::Request,
-		std::{current_date, parse_date_with_options, send_partial_result},
+		std::{current_date, parse_date, parse_date_with_options, send_partial_result},
 	},
 	prelude::*,
 };
+
+/// Reads the release stamps the listing cards carry.
+///
+/// The theme writes them as a bare span such as `10 minutes` or `1 week`, with
+/// no `ago`, so the unit is matched on its stem and the amount subtracted from
+/// now. Absolute dates fall through to the usual formats.
+fn listing_date(text: &str) -> Option<i64> {
+	let trimmed = text.trim();
+	if trimmed.is_empty() {
+		return None;
+	}
+
+	let lowered = trimmed.to_lowercase();
+	let mut words = lowered.split_whitespace();
+	if let Some(amount) = words.next().and_then(|word| word.parse::<i64>().ok())
+		&& let Some(unit) = words.next()
+	{
+		let seconds = if unit.starts_with("second") {
+			Some(1)
+		} else if unit.starts_with("min") {
+			Some(60)
+		} else if unit.starts_with("hour") {
+			Some(3600)
+		} else if unit.starts_with("day") {
+			Some(86400)
+		} else if unit.starts_with("week") {
+			Some(604800)
+		} else if unit.starts_with("month") {
+			Some(2592000)
+		} else if unit.starts_with("year") {
+			Some(31536000)
+		} else {
+			None
+		};
+		if let Some(seconds) = seconds {
+			return Some(current_date() - amount * seconds);
+		}
+	}
+
+	parse_date(trimmed, "MMMM d, yyyy")
+		.or_else(|| parse_date(trimmed, "MMM d, yyyy"))
+		.or_else(|| parse_date(trimmed, "yyyy-MM-dd"))
+}
 
 pub trait Impl {
 	fn new() -> Self;
@@ -581,6 +624,15 @@ pub trait Impl {
 								.attr("href")?
 								.strip_prefix_or_self(&params.base_url)
 								.into();
+							let released = chapter_link
+								.select_first("span.fivtime, .epxdate, .chapterdate, .timeago")
+								.or_else(|| {
+									el.select_first(
+										"span.fivtime, .epxdate, .chapterdate, .timeago",
+									)
+								})
+								.and_then(|el| el.text())
+								.and_then(|text| listing_date(&text));
 							let chapter_title = chapter_link
 								.select_first("span.fivchap")
 								.unwrap_or(chapter_link)
@@ -597,6 +649,7 @@ pub trait Impl {
 									key: chapter_key,
 									title: chapter_number.is_none().then_some(chapter_title),
 									chapter_number,
+									date_uploaded: released,
 									..Default::default()
 								},
 							})
