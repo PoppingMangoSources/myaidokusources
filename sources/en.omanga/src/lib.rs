@@ -2,8 +2,7 @@
 use aidoku::{
 	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterValue, Home, HomeComponent,
 	HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider, Manga,
-	MangaPageResult, MangaStatus, MangaWithChapter, Page, PageContent, PageContext, Result, Source,
-	Viewer,
+	MangaPageResult, MangaStatus, Page, PageContent, PageContext, Result, Source, Viewer,
 	alloc::{String, Vec, string::ToString, vec},
 	helpers::uri::QueryParameters,
 	imports::net::Request,
@@ -31,63 +30,12 @@ struct CatalogItem {
 	genres: Option<Vec<String>>,
 }
 
-/// Reads the home page's chapter feed out of its flight payload.
-fn home_updates() -> Vec<MangaWithChapter> {
-	let Ok(payload) = fetch_rsc(&format!("{DOMAIN}/")) else {
-		return Vec::new();
-	};
-	let updates: Vec<HomeUpdate> =
-		extract_at_marker(&payload, "\"updates\":[", "\"updates\":".len()).unwrap_or_default();
-
-	// The feed carries hundreds of rows; a carousel only needs the newest few.
-	const MAX_UPDATES: usize = 30;
-	let mut seen: Vec<String> = Vec::new();
-	let mut entries = Vec::new();
-	for update in updates {
-		if entries.len() >= MAX_UPDATES {
-			break;
-		}
-		let Some(item) = update.manga else { continue };
-		let Some(number) = update.number else {
-			continue;
-		};
-		if item.slug.is_empty() || item.poster.is_empty() || seen.contains(&item.slug) {
-			continue;
-		}
-		seen.push(item.slug.clone());
-		let date_uploaded = parse_flight_date(update.created_at.as_deref());
-		entries.push(MangaWithChapter {
-			manga: item_to_manga(item),
-			chapter: Chapter {
-				key: if (number as i64) as f32 == number {
-					format!("{}", number as i64)
-				} else {
-					format!("{number}")
-				},
-				chapter_number: Some(number),
-				date_uploaded,
-				..Default::default()
-			},
-		});
-	}
-	entries
-}
-
 #[derive(Deserialize, Default)]
 struct CatalogResponse {
 	#[serde(default)]
 	items: Vec<CatalogItem>,
 	#[serde(rename = "hasMore", default)]
 	has_more: bool,
-}
-
-/// A row of the home page's `updates` feed.
-#[derive(Deserialize)]
-struct HomeUpdate {
-	manga: Option<CatalogItem>,
-	number: Option<f32>,
-	#[serde(rename = "createdAt")]
-	created_at: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
@@ -247,7 +195,8 @@ fn listing(id: &str, name: &str) -> Option<Listing> {
 }
 
 /// The rows below the banner, in display order.
-const HOME_ROWS: [(&str, &str, &str, bool); 8] = [
+const HOME_ROWS: [(&str, &str, &str, bool); 9] = [
+	("Latest Updates", "updated_at", "sort=updated_at", false),
 	// The site splits its top series by where they come from.
 	(
 		"Top Manhwa",
@@ -539,21 +488,6 @@ impl Home for OManga {
 				value: HomeComponentValue::BigScroller {
 					entries: banner,
 					auto_scroll_interval: Some(6.0),
-				},
-			});
-		}
-
-		// The catalog carries no chapter data, so the dated feed comes from the
-		// home page's own payload and sits above the shelves.
-		let updates = home_updates();
-		if !updates.is_empty() {
-			components.push(HomeComponent {
-				title: Some("Latest Updates".into()),
-				subtitle: None,
-				value: HomeComponentValue::MangaChapterList {
-					page_size: None,
-					entries: updates,
-					listing: listing("updated_at", "Latest Updates"),
 				},
 			});
 		}
