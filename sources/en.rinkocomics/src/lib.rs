@@ -53,7 +53,9 @@ fn card_manga(
 	// Every card variant on the home page marks its genres and latest chapter
 	// the same way, so pick them up wherever they happen to be present.
 	let tags: Vec<String> = element
-		.select(".comic-genres .genre, .genre")
+		.select(
+			".comic-genres .genre, .comic-genres-popular span, .novel-genres .genre-tag, .genre",
+		)
 		.map(|genres| {
 			genres
 				.filter_map(|genre| genre.text())
@@ -291,12 +293,12 @@ impl Impl for RinkoComics {
 							".novel-cover img",
 						)?;
 						let chapters = item
-							.select_first(".novel-chapters, .chapter-count, .chapter-badge")
+							.select_first(".chapter-badge")
 							.and_then(|el| el.text())
 							.map(|text| text.trim().to_string())
 							.filter(|text| !text.is_empty());
 						let blurb = item
-							.select_first(".novel-description, .novel-summary, .novel-excerpt, p")
+							.select_first(".novel-excerpt")
 							.and_then(|el| el.text())
 							.map(|text| text.trim().to_string())
 							.filter(|text| !text.is_empty());

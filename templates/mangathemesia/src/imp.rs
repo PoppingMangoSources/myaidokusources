@@ -487,6 +487,77 @@ pub trait Impl {
 			}
 		}
 
+		// The popular widget renders all three of its windows into the page, so
+		// they cost nothing extra and each carries genres and a score.
+		for (title, class_name) in [
+			("Popular Weekly", "wpop-weekly"),
+			("Popular Monthly", "wpop-monthly"),
+			("Popular All Time", "wpop-alltime"),
+		] {
+			let Some(items) = html.select(format!("#wpop-items .{class_name} li")) else {
+				continue;
+			};
+			let entries: Vec<Link> = items
+				.filter_map(|el| {
+					let link = el
+						.select_first(".leftseries h2 a")
+						.or_else(|| el.select_first("a.series"))?;
+					let name = link
+						.text()
+						.or_else(|| link.attr("title"))
+						.map(|name| name.trim().to_string())
+						.filter(|name| !name.is_empty())?;
+					let genres: Vec<String> = el
+						.select(".leftseries span a[rel=tag]")
+						.map(|tags| {
+							tags.filter_map(|tag| tag.text())
+								.map(|tag| tag.trim().to_string())
+								.filter(|tag| !tag.is_empty())
+								.collect()
+						})
+						.unwrap_or_default();
+					let score = el
+						.select_first(".numscore")
+						.and_then(|el| el.text())
+						.map(|score| score.trim().to_string())
+						.filter(|score| !score.is_empty());
+					let description = match (score, genres.join(", ")) {
+						(Some(score), genres) if genres.is_empty() => Some(format!("★ {score}")),
+						(Some(score), genres) => Some(format!("★ {score} · {genres}")),
+						(None, genres) if genres.is_empty() => None,
+						(None, genres) => Some(genres),
+					};
+					Some(
+						Manga {
+							key: link
+								.attr("abs:href")?
+								.strip_prefix_or_self(&params.base_url)
+								.into(),
+							title: name,
+							cover: el.select_first("img").and_then(|img| img.img_attr()),
+							description,
+							tags: (!genres.is_empty()).then_some(genres),
+							..Default::default()
+						}
+						.into(),
+					)
+				})
+				.collect();
+			if entries.is_empty() {
+				continue;
+			}
+			components.push(HomeComponent {
+				title: Some(title.into()),
+				subtitle: None,
+				value: HomeComponentValue::MangaList {
+					ranking: true,
+					page_size: Some(10),
+					entries,
+					listing: None,
+				},
+			});
+		}
+
 		if let Some(chapter_lists) = html.select(".postbody > .bixbox") {
 			for list in chapter_lists {
 				let Some(title) = list
