@@ -2,7 +2,7 @@
 	"info": {
 		"id": "en.likemanga",
 		"name": "LikeManga",
-		"version": 5,
+		"version": 6,
 		"url": "https://likemanga.ink",
 		"contentRating": 1,
 		"languages": ["en"],

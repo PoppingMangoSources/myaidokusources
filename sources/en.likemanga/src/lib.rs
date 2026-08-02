@@ -7,7 +7,7 @@ use aidoku::{
 	helpers::uri::QueryParameters,
 	imports::html::{Document, Element, Html},
 	imports::net::Request,
-	imports::std::{parse_date, send_partial_result},
+	imports::std::{current_date, parse_date, send_partial_result},
 	prelude::*,
 };
 use base64::{Engine, engine::general_purpose};
@@ -101,6 +101,36 @@ fn parse_site_date(text: &str) -> Option<i64> {
 	if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("new") {
 		return None;
 	}
+
+	// Cards often write the age instead of a date, with no `ago` and a
+	// shortened unit, so match the unit on its stem.
+	let lowered = trimmed.to_lowercase();
+	let mut words = lowered.trim_end_matches("ago").split_whitespace();
+	if let Some(amount) = words.next().and_then(|word| word.parse::<i64>().ok())
+		&& let Some(unit) = words.next()
+	{
+		let seconds = if unit.starts_with("second") {
+			Some(1)
+		} else if unit.starts_with("min") {
+			Some(60)
+		} else if unit.starts_with("hour") || unit.starts_with("hr") {
+			Some(3600)
+		} else if unit.starts_with("day") {
+			Some(86400)
+		} else if unit.starts_with("week") {
+			Some(604800)
+		} else if unit.starts_with("month") {
+			Some(2592000)
+		} else if unit.starts_with("year") {
+			Some(31536000)
+		} else {
+			None
+		};
+		if let Some(seconds) = seconds {
+			return Some(current_date() - amount * seconds);
+		}
+	}
+
 	parse_date(trimmed, "dd/MM/yyyy")
 		.or_else(|| parse_date(trimmed, "MMM d, yyyy"))
 		.or_else(|| parse_date(trimmed, "yyyy-MM-dd"))
