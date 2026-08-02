@@ -66,6 +66,7 @@ pub struct MangaCard {
 	pub available_chapters_detail: Option<AvailableChaptersDetail>,
 	#[serde(rename = "lastChapterDate")]
 	pub last_chapter_date: Option<LastChapterDate>,
+	pub score: Option<f32>,
 }
 
 impl MangaCard {
@@ -81,6 +82,13 @@ impl MangaCard {
 pub struct Recommendation {
 	#[serde(rename = "anyCard")]
 	pub any_card: Option<MangaCard>,
+	#[serde(rename = "pageStatus")]
+	pub page_status: Option<PageStatus>,
+}
+
+#[derive(Deserialize)]
+pub struct PageStatus {
+	pub views: Option<i64>,
 }
 
 #[derive(Deserialize)]

@@ -50,11 +50,31 @@ fn card_manga(
 				.select_first(link_selector)
 				.and_then(|el| el.attr("title"))
 		})?;
+	// Every card variant on the home page marks its genres and latest chapter
+	// the same way, so pick them up wherever they happen to be present.
+	let tags: Vec<String> = element
+		.select(".comic-genres .genre, .genre")
+		.map(|genres| {
+			genres
+				.filter_map(|genre| genre.text())
+				.map(|genre| genre.trim().to_string())
+				.filter(|genre| !genre.is_empty())
+				.collect()
+		})
+		.unwrap_or_default();
+	let description = element
+		.select_first(".chapter-badge")
+		.and_then(|badge| badge.text())
+		.map(|text| text.trim().to_string())
+		.filter(|text| !text.is_empty());
+
 	Some(Manga {
 		key: href.strip_prefix_or_self(&params.base_url).into(),
 		title: title.trim().to_string(),
 		cover: image_from(element, image_selector),
+		description,
 		content_rating: ContentRating::Safe,
+		tags: (!tags.is_empty()).then_some(tags),
 		url: Some(href),
 		..Default::default()
 	})
@@ -120,15 +140,14 @@ impl Impl for RinkoComics {
 			.map(|items| {
 				items
 					.filter_map(|item| {
-						let mut manga = card_manga(params, &item, "a", ".comic-title", "img")?;
-						let genres: Vec<String> = item
-							.select(".comic-genres .genre")
-							.map(|items| items.filter_map(|genre| genre.text()).collect())
-							.unwrap_or_default();
-						manga.tags = (!genres.is_empty()).then_some(genres.clone());
+						let manga = card_manga(params, &item, "a", ".comic-title", "img")?;
 						Some(aidoku::Link {
 							title: manga.title.clone(),
-							subtitle: (!genres.is_empty()).then(|| genres.join(" · ")),
+							subtitle: manga
+								.tags
+								.as_ref()
+								.filter(|genres| !genres.is_empty())
+								.map(|genres| genres.join(" · ")),
 							image_url: manga.cover.clone(),
 							value: Some(aidoku::LinkValue::Manga(manga)),
 						})
@@ -184,19 +203,13 @@ impl Impl for RinkoComics {
 			.map(|items| {
 				items
 					.filter_map(|item| {
-						let mut manga = card_manga(
+						card_manga(
 							params,
 							&item,
 							"",
 							".pinned-comic-title",
 							".comic-thumbnail img",
-						)?;
-						manga.description = item
-							.select_first(".chapter-badge")
-							.and_then(|badge| badge.text())
-							.map(|text| text.trim().to_string())
-							.filter(|text| !text.is_empty());
-						Some(manga)
+						)
 					})
 					.take(12)
 					.collect()

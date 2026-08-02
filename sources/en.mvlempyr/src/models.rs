@@ -84,6 +84,21 @@ impl Novel {
 		})
 	}
 
+	/// A one-line blurb from the numbers the listing already carries.
+	pub fn summary(&self) -> Option<String> {
+		let mut parts: Vec<String> = Vec::new();
+		if self.rating > 0.0 {
+			parts.push(format!("★ {:.1}", self.rating));
+		}
+		if self.reviews > 0.0 {
+			parts.push(format!("{} reviews", self.reviews as i64));
+		}
+		if self.chapters > 0.0 {
+			parts.push(format!("{} chapters", self.chapters as i64));
+		}
+		(!parts.is_empty()).then(|| parts.join(" · "))
+	}
+
 	pub fn cover(&self) -> String {
 		format!("{ASSETS_URL}/images/600/{}.webp", self.code)
 	}
@@ -148,10 +163,12 @@ impl From<Novel> for Manga {
 		let content_rating = novel.content_rating();
 		let status = novel.manga_status();
 		let cover = novel.cover();
+		let description = novel.summary();
 		Manga {
 			key: novel.slug,
 			title: novel.name,
 			cover: Some(cover),
+			description,
 			authors: novel.author.map(|a| vec![a]),
 			status,
 			content_rating,
@@ -167,7 +184,7 @@ impl From<Novel> for Link {
 		let manga = Manga::from(novel);
 		Link {
 			title: manga.title.clone(),
-			subtitle: None,
+			subtitle: manga.description.clone(),
 			image_url: manga.cover.clone(),
 			value: Some(LinkValue::Manga(manga)),
 		}

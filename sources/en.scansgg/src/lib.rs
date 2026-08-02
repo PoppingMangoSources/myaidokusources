@@ -185,17 +185,31 @@ fn parse_chapter_title(raw: Option<&str>) -> (Option<String>, Option<String>) {
 }
 
 fn series_to_manga(series: SeriesDto) -> Manga {
-	let tags = series.tags.clone().unwrap_or_default();
-	let content_rating = derive_content_rating(series.content_rating, &tags);
+	let tag_ids = series.tags.clone().unwrap_or_default();
+	let content_rating = derive_content_rating(series.content_rating, &tag_ids);
 	let viewer = viewer_for_type(series.kind);
 	let cover = cover_url(series.cover.as_deref());
+	// The listing payload already carries genres and a synopsis, so cards can
+	// show them without a detail request.
+	let tags: Vec<String> = tag_ids
+		.iter()
+		.filter_map(|id| tag_name(*id))
+		.map(|name| name.to_string())
+		.collect();
+	let description = series
+		.summary
+		.as_deref()
+		.map(strip_html)
+		.filter(|text| !text.is_empty());
 	Manga {
 		key: series.id.to_string(),
 		title: series.title,
 		cover,
+		description,
 		status: map_status(series.status),
 		content_rating,
 		viewer,
+		tags: (!tags.is_empty()).then_some(tags),
 		..Default::default()
 	}
 }
@@ -204,7 +218,11 @@ fn series_to_link(series: SeriesDto) -> Link {
 	let manga = series_to_manga(series);
 	Link {
 		title: manga.title.clone(),
-		subtitle: None,
+		subtitle: manga
+			.tags
+			.as_ref()
+			.filter(|tags| !tags.is_empty())
+			.map(|tags| tags.join(" · ")),
 		image_url: manga.cover.clone(),
 		value: Some(LinkValue::Manga(manga)),
 	}

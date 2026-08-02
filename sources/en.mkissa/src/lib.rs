@@ -45,23 +45,57 @@ fn json_string_array(values: Vec<String>) -> Value {
 	}
 }
 
+fn format_count(value: i64) -> String {
+	if value >= 1_000_000 {
+		format!("{:.1}M", value as f64 / 1_000_000.0)
+	} else if value >= 1_000 {
+		format!("{:.1}K", value as f64 / 1_000.0)
+	} else {
+		value.to_string()
+	}
+}
+
+/// A one-line blurb from the score and view count the cards already carry.
+fn card_summary(score: Option<f32>, views: Option<i64>) -> Option<String> {
+	let mut parts: Vec<String> = Vec::new();
+	if let Some(score) = score.filter(|score| *score > 0.0) {
+		parts.push(format!("★ {score:.1}"));
+	}
+	if let Some(views) = views.filter(|views| *views > 0) {
+		parts.push(format!("{} views", format_count(views)));
+	}
+	(!parts.is_empty()).then(|| parts.join(" · "))
+}
+
 fn card_to_manga(card: MangaCard) -> Manga {
 	let title = decode_entities(card.display_title());
 	let cover = parse_thumbnail_url(card.thumbnail.as_deref());
+	let description = card_summary(card.score, None);
 	Manga {
 		key: card.id,
 		title,
 		cover: Some(cover),
+		description,
 		content_rating: source_content_rating(),
 		..Default::default()
 	}
+}
+
+/// Same as `card_to_manga`, but keeps the view count the recommendation adds.
+fn recommendation_to_manga(rec: Recommendation) -> Option<Manga> {
+	let views = rec.page_status.as_ref().and_then(|status| status.views);
+	let card = rec.any_card?;
+	let score = card.score;
+	let mut manga = card_to_manga(card);
+	manga.description = card_summary(score, views);
+	Some(manga)
 }
 
 fn card_to_link(card: MangaCard) -> Link {
 	let manga = card_to_manga(card);
 	Link {
 		title: manga.title.clone(),
-		subtitle: None,
+		subtitle: manga.description.clone(),
 		image_url: manga.cover.clone(),
 		value: Some(LinkValue::Manga(manga)),
 	}
@@ -86,8 +120,7 @@ fn popular_listing(date_range: i32, page: i32) -> Result<MangaPageResult> {
 	let (recommendations, has_next_page) = popular_cards(date_range, page)?;
 	let entries = recommendations
 		.into_iter()
-		.filter_map(|rec| rec.any_card)
-		.map(card_to_manga)
+		.filter_map(recommendation_to_manga)
 		.collect();
 	Ok(MangaPageResult {
 		entries,
@@ -314,8 +347,7 @@ impl Home for Mkissa {
 		if let Ok((recommendations, _)) = popular_cards(0, 1) {
 			let entries: Vec<Manga> = recommendations
 				.into_iter()
-				.filter_map(|rec| rec.any_card)
-				.map(card_to_manga)
+				.filter_map(recommendation_to_manga)
 				.collect();
 			if !entries.is_empty() {
 				components.push(HomeComponent {
@@ -336,8 +368,8 @@ impl Home for Mkissa {
 			if let Ok((recommendations, _)) = popular_cards(date_range, 1) {
 				let entries: Vec<Link> = recommendations
 					.into_iter()
-					.filter_map(|rec| rec.any_card)
-					.map(card_to_link)
+					.filter_map(recommendation_to_manga)
+					.map(Into::into)
 					.collect();
 				if !entries.is_empty() {
 					components.push(HomeComponent {
