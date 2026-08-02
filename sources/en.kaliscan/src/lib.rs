@@ -5,6 +5,7 @@ use aidoku::{
 	alloc::{String, Vec, string::ToString, vec},
 	helpers::{string::StripPrefixOrSelf, uri::QueryParameters},
 	imports::defaults::defaults_get,
+	imports::html::Document,
 	imports::net::Request,
 	prelude::*,
 };
@@ -43,49 +44,6 @@ fn rating_for(tags: &[String]) -> ContentRating {
 	}
 }
 
-fn parse_home_cards(url: &str, selector: &str) -> Result<Vec<Manga>> {
-	let html = Request::get(url)?.html()?;
-	let hide_nsfw = !show_nsfw();
-	Ok(html
-		.select(selector)
-		.map(|items| {
-			items
-				.filter_map(|item| {
-					let link = item
-						.select_first("a[href*='/manga/']")
-						.or_else(|| item.select_first("a"))?;
-					let href = link.attr("abs:href").or_else(|| link.attr("href"))?;
-					let title = item
-						.select_first(".name, .title, h3, h2")
-						.and_then(|el| el.text())
-						.or_else(|| link.attr("title"))?;
-					let tags: Vec<String> = item
-						.select(".genres a, .genres span, .genres-content a")
-						.map(|tags| tags.filter_map(|tag| tag.text()).collect())
-						.unwrap_or_default();
-					let content_rating = rating_for(&tags);
-					if hide_nsfw && content_rating == ContentRating::NSFW {
-						return None;
-					}
-					let image = item.select_first("img")?;
-					Some(Manga {
-						key: href.strip_prefix_or_self(base_url()).into(),
-						title: title.trim().to_string(),
-						cover: image
-							.attr("abs:data-src")
-							.or_else(|| image.attr("abs:src"))
-							.or_else(|| image.attr("src")),
-						tags: (!tags.is_empty()).then_some(tags),
-						content_rating,
-						url: Some(href),
-						..Default::default()
-					})
-				})
-				.collect()
-		})
-		.unwrap_or_default())
-}
-
 fn first_number(text: &str) -> Option<f32> {
 	let mut number = String::new();
 	for ch in text.chars() {
@@ -96,6 +54,132 @@ fn first_number(text: &str) -> Option<f32> {
 		}
 	}
 	number.trim_matches('.').parse().ok()
+}
+
+fn parse_home_cards(document: &Document, selector: &str, base: &str) -> Vec<Manga> {
+	let hide_nsfw = !show_nsfw();
+	document
+		.select(selector)
+		.map(|items| {
+			items
+				.filter_map(|item| {
+					let link = item
+						.select_first("a[href*='/manga/'], a[href^='manga/']")
+						.or_else(|| item.select_first("a"))?;
+					let href = link.attr("abs:href").or_else(|| link.attr("href"))?;
+					let title = item
+						.select_first(".name, .title, .book-title, h3, h2")
+						.and_then(|el| el.text())
+						.or_else(|| link.attr("title"))?;
+					let title = title.trim().to_string();
+					if title.is_empty() {
+						return None;
+					}
+					let tags: Vec<String> = item
+						.select(".genres a, .genres span, .genres-content a, a[href*='/genre/']")
+						.map(|tags| {
+							tags
+								.filter_map(|tag| tag.text())
+								.map(|tag| tag.trim().to_string())
+								.filter(|tag| !tag.is_empty())
+								.collect()
+						})
+						.unwrap_or_default();
+					let content_rating = rating_for(&tags);
+					if hide_nsfw && content_rating == ContentRating::NSFW {
+						return None;
+					}
+					let image = item.select_first("img")?;
+					let description = item
+						.select_first(".description, .summary, .excerpt, .book-summary, p")
+						.and_then(|el| el.text())
+						.map(|text| text.trim().to_string())
+						.filter(|text| !text.is_empty());
+					let rating = item
+						.select_first(".rating, .score, [class*='rating']")
+						.and_then(|el| el.text())
+						.and_then(|text| first_number(&text));
+					Some(Manga {
+						key: href.strip_prefix_or_self(base).into(),
+						title,
+						cover: image
+							.attr("abs:data-src")
+							.or_else(|| image.attr("abs:src"))
+							.or_else(|| image.attr("data-src"))
+							.or_else(|| image.attr("src")),
+						description,
+						rating,
+						tags: (!tags.is_empty()).then_some(tags),
+						content_rating,
+						url: Some(href),
+						..Default::default()
+					})
+				})
+				.collect()
+		})
+		.unwrap_or_default()
+}
+
+fn parse_latest(document: &Document, base: &str) -> Vec<MangaWithChapter> {
+	let hide_nsfw = !show_nsfw();
+	document
+		.select(".book-item, .book-item-list, .latest-updates .item")
+		.map(|items| {
+			items
+				.filter_map(|item| {
+					let link = item
+						.select_first("a[href*='/manga/'], a[href^='manga/']")
+						.or_else(|| item.select_first("a"))?;
+					let href = link.attr("abs:href").or_else(|| link.attr("href"))?;
+					let chapter = item.select_first("a[href*='chapter']")?;
+					let chapter_href = chapter.attr("abs:href").or_else(|| chapter.attr("href"))?;
+					let chapter_title = chapter.text()?.trim().to_string();
+					let image = item.select_first("img")?;
+					let tags: Vec<String> = item
+						.select(".genres a, .genres span, a[href*='/genre/']")
+						.map(|tags| {
+							tags
+								.filter_map(|tag| tag.text())
+								.map(|tag| tag.trim().to_string())
+								.filter(|tag| !tag.is_empty())
+								.collect()
+						})
+						.unwrap_or_default();
+					let content_rating = rating_for(&tags);
+					if hide_nsfw && content_rating == ContentRating::NSFW {
+						return None;
+					}
+					Some(MangaWithChapter {
+						manga: Manga {
+							key: href.strip_prefix_or_self(base).into(),
+							title: item
+								.select_first(".name, .title, .book-title")
+								.and_then(|el| el.text())
+								.or_else(|| link.attr("title"))?
+								.trim()
+								.to_string(),
+							cover: image
+								.attr("abs:data-src")
+								.or_else(|| image.attr("abs:src"))
+								.or_else(|| image.attr("data-src"))
+								.or_else(|| image.attr("src")),
+							tags: (!tags.is_empty()).then_some(tags),
+							content_rating,
+							url: Some(href),
+							..Default::default()
+						},
+						chapter: Chapter {
+							key: chapter_href.strip_prefix_or_self(base).into(),
+							chapter_number: first_number(&chapter_title),
+							title: Some(chapter_title),
+							url: Some(chapter_href),
+							..Default::default()
+						},
+					})
+				})
+				.collect()
+		})
+		.unwrap_or_default()
 }
 
 struct KaliScan;
@@ -112,129 +196,109 @@ impl Impl for KaliScan {
 		}
 	}
 
-	fn get_home(&self, params: &Params) -> Result<HomeLayout> {
+	fn get_home(&self, _params: &Params) -> Result<HomeLayout> {
 		let base = base_url();
+		let urls = [
+			format!("{base}/top/week"),
+			format!("{base}/home"),
+			format!("{base}/top/day"),
+			format!("{base}/top/reviews"),
+			format!("{base}/top/comments"),
+		];
+		let requests: Vec<Request> = urls
+			.iter()
+			.map(Request::get)
+			.collect::<Result<Vec<_>>>()?;
+		let documents: Vec<Option<Document>> = Request::send_all(requests)
+			.into_iter()
+			.map(|response| {
+				response
+					.ok()
+					.and_then(|response| response.get_html().ok())
+			})
+			.collect();
 		let mut components = Vec::new();
 
-		for (title, path, selector, featured, ranked) in [
-			(
-				"Top of the Week",
-				"/top/week",
-				".book-detailed-item",
-				true,
-				false,
-			),
-			("Hot Updates", "/home", ".trending-item", false, true),
-			("Trending", "/top/day", ".book-detailed-item", true, false),
-			(
-				"Most Talked About",
-				"/top/reviews",
-				".book-detailed-item",
-				false,
-				true,
-			),
-			(
-				"Most Viewed",
-				"/az-list",
-				".book-detailed-item",
-				false,
-				true,
-			),
-			(
-				"Editor's Choice",
-				"/top/comments",
-				".book-detailed-item",
-				false,
-				true,
-			),
-		] {
-			let Ok(mut mangas) = parse_home_cards(&format!("{base}{path}"), selector) else {
-				continue;
-			};
-			if mangas.is_empty() {
-				continue;
+		if let Some(document) = documents.first().and_then(Option::as_ref) {
+			let entries = parse_home_cards(document, ".book-detailed-item", &base);
+			if !entries.is_empty() {
+				components.push(HomeComponent {
+					title: Some("Top of the Week".into()),
+					subtitle: None,
+					value: HomeComponentValue::BigScroller {
+						entries,
+						auto_scroll_interval: Some(6.0),
+					},
+				});
 			}
-			let descriptive = featured || title == "Editor's Choice";
-			if descriptive {
-				mangas = mangas
-					.into_iter()
-					.take(8)
-					.map(|manga| {
-						self.get_manga_update(params, manga.clone(), true, false)
-							.unwrap_or(manga)
-					})
-					.collect();
-			}
-			let value = if descriptive {
-				HomeComponentValue::BigScroller {
-					entries: mangas,
-					auto_scroll_interval: Some(6.0),
-				}
-			} else if ranked {
-				HomeComponentValue::MangaList {
-					ranking: true,
-					page_size: Some(10),
-					entries: mangas.into_iter().map(Into::into).collect(),
-					listing: None,
-				}
-			} else {
-				HomeComponentValue::Scroller {
-					entries: mangas.into_iter().map(Into::into).collect(),
-					listing: None,
-				}
-			};
-			components.push(HomeComponent {
-				title: Some(title.into()),
-				subtitle: None,
-				value,
-			});
 		}
 
-		if let Ok(html) = Request::get(format!("{base}/home"))?.html()
-			&& let Some(items) = html.select(".book-item")
-		{
-			let latest: Vec<MangaWithChapter> = items
-				.filter_map(|item| {
-					let link = item.select_first("a[href*='/manga/']")?;
-					let href = link.attr("abs:href").or_else(|| link.attr("href"))?;
-					let chapter = item.select_first("a[href*='chapter']")?;
-					let chapter_href = chapter.attr("abs:href").or_else(|| chapter.attr("href"))?;
-					let chapter_title = chapter.text()?;
-					let image = item.select_first("img")?;
-					Some(MangaWithChapter {
-						manga: Manga {
-							key: href.strip_prefix_or_self(&base).into(),
-							title: item
-								.select_first(".name, .title")
-								.and_then(|el| el.text())
-								.or_else(|| link.attr("title"))?,
-							cover: image.attr("abs:data-src").or_else(|| image.attr("abs:src")),
-							url: Some(href),
-							..Default::default()
-						},
-						chapter: Chapter {
-							key: chapter_href.strip_prefix_or_self(&base).into(),
-							chapter_number: first_number(&chapter_title),
-							title: Some(chapter_title),
-							url: Some(chapter_href),
-							..Default::default()
-						},
-					})
-				})
-				.collect();
-			if !latest.is_empty() {
-				components.insert(
-					2.min(components.len()),
-					HomeComponent {
-						title: Some("Latest Updates".into()),
-						subtitle: None,
-						value: HomeComponentValue::MangaChapterList {
-							page_size: None,
-							entries: latest,
-							listing: None,
-						},
+		if let Some(document) = documents.get(1).and_then(Option::as_ref) {
+			let hot = parse_home_cards(document, ".trending-item", &base);
+			if !hot.is_empty() {
+				components.push(HomeComponent {
+					title: Some("Hot Updates".into()),
+					subtitle: None,
+					value: HomeComponentValue::MangaList {
+						ranking: true,
+						page_size: Some(10),
+						entries: hot.into_iter().map(Into::into).collect(),
+						listing: None,
 					},
-				);
+				});
+			}
+			let latest = parse_latest(document, &base);
+			if !latest.is_empty() {
+				components.push(HomeComponent {
+					title: Some("Latest Updates".into()),
+					subtitle: None,
+					value: HomeComponentValue::MangaChapterList {
+						page_size: None,
+						entries: latest,
+						listing: None,
+					},
+				});
+			}
+		}
+
+		if let Some(document) = documents.get(2).and_then(Option::as_ref) {
+			let entries = parse_home_cards(document, ".book-detailed-item", &base);
+			if !entries.is_empty() {
+				components.push(HomeComponent {
+					title: Some("Trending".into()),
+					subtitle: None,
+					value: HomeComponentValue::BigScroller {
+						entries,
+						auto_scroll_interval: Some(6.0),
+					},
+				});
+			}
+		}
+
+		for (index, title) in [(3, "Most Talked About"), (4, "Editor's Choice")] {
+			if let Some(document) = documents.get(index).and_then(Option::as_ref) {
+				let entries = parse_home_cards(document, ".book-detailed-item", &base);
+				if entries.is_empty() {
+					continue;
+				}
+				let value = if title == "Editor's Choice" {
+					HomeComponentValue::BigScroller {
+						entries,
+						auto_scroll_interval: Some(6.0),
+					}
+				} else {
+					HomeComponentValue::MangaList {
+						ranking: true,
+						page_size: Some(10),
+						entries: entries.into_iter().map(Into::into).collect(),
+						listing: None,
+					}
+				};
+				components.push(HomeComponent {
+					title: Some(title.into()),
+					subtitle: None,
+					value,
+				});
 			}
 		}
 
