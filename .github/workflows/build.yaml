@@ -39,7 +39,6 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             ~/.cargo/bin
-            sources/**/target/
           key: ${{ runner.os }}-cargo3-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo3-
@@ -70,7 +69,8 @@ jobs:
 
       - name: Build sources
         run: |
-          for src in ./sources/*; do
+          for manifest in ./sources/*/Cargo.toml; do
+            src="${manifest%/Cargo.toml}"
             (
               cd "$src"
               cargo clean --release

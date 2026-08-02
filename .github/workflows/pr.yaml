@@ -28,7 +28,6 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             ~/.cargo/bin
-            sources/**/target
           key: ${{ runner.os }}-cargo3-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo3-
       - name: sccache
@@ -55,15 +54,14 @@ jobs:
         run: |
           readarray -t TEMP <<< "$(jq -r '.[]' <<<'${{ steps.files.outputs.added_modified }}')"
 
-          while IFS= read -r -d $'\0' i; do
-            if [[ "$i" == *"sources"* ]]; then
-              (
-                cd "$i"
-                cargo clean --release
-                aidoku package
-              )
-            fi
-          done < <(printf "%s\n" "${TEMP[@]}" | cut -d'/' -f-2 | sort -u | grep 'sources' | tr '\n' '\0')
+          while IFS= read -r src; do
+            [[ -f "$src/Cargo.toml" ]] || continue
+            (
+              cd "$src"
+              cargo clean --release
+              aidoku package
+            )
+          done < <(printf "%s\n" "${TEMP[@]}" | awk -F/ '$1 == "sources" && NF >= 2 { print $1 "/" $2 }' | sort -u)
       - name: Test if sources are valid
         run: aidoku verify sources/*/package.aix
       - name: Flatten packages directory
