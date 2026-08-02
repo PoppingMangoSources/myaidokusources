@@ -78,8 +78,7 @@ fn parse_home_cards(document: &Document, selector: &str, base: &str) -> Vec<Mang
 					let tags: Vec<String> = item
 						.select(".genres a, .genres span, .genres-content a, a[href*='/genre/']")
 						.map(|tags| {
-							tags
-								.filter_map(|tag| tag.text())
+							tags.filter_map(|tag| tag.text())
 								.map(|tag| tag.trim().to_string())
 								.filter(|tag| !tag.is_empty())
 								.collect()
@@ -95,10 +94,6 @@ fn parse_home_cards(document: &Document, selector: &str, base: &str) -> Vec<Mang
 						.and_then(|el| el.text())
 						.map(|text| text.trim().to_string())
 						.filter(|text| !text.is_empty());
-					let rating = item
-						.select_first(".rating, .score, [class*='rating']")
-						.and_then(|el| el.text())
-						.and_then(|text| first_number(&text));
 					Some(Manga {
 						key: href.strip_prefix_or_self(base).into(),
 						title,
@@ -108,7 +103,6 @@ fn parse_home_cards(document: &Document, selector: &str, base: &str) -> Vec<Mang
 							.or_else(|| image.attr("data-src"))
 							.or_else(|| image.attr("src")),
 						description,
-						rating,
 						tags: (!tags.is_empty()).then_some(tags),
 						content_rating,
 						url: Some(href),
@@ -138,8 +132,7 @@ fn parse_latest(document: &Document, base: &str) -> Vec<MangaWithChapter> {
 					let tags: Vec<String> = item
 						.select(".genres a, .genres span, a[href*='/genre/']")
 						.map(|tags| {
-							tags
-								.filter_map(|tag| tag.text())
+							tags.filter_map(|tag| tag.text())
 								.map(|tag| tag.trim().to_string())
 								.filter(|tag| !tag.is_empty())
 								.collect()
@@ -207,15 +200,11 @@ impl Impl for KaliScan {
 		];
 		let requests: Vec<Request> = urls
 			.iter()
-			.map(Request::get)
+			.map(|url| Request::get(url).map_err(Into::into))
 			.collect::<Result<Vec<_>>>()?;
 		let documents: Vec<Option<Document>> = Request::send_all(requests)
 			.into_iter()
-			.map(|response| {
-				response
-					.ok()
-					.and_then(|response| response.get_html().ok())
-			})
+			.map(|response| response.ok().and_then(|response| response.get_html().ok()))
 			.collect();
 		let mut components = Vec::new();
 
