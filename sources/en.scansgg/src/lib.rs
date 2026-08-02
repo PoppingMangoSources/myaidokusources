@@ -250,6 +250,20 @@ fn series_to_manga_chapter(mut series: SeriesDto) -> Option<MangaWithChapter> {
 	})
 }
 
+/// The update feed, asked for as a series listing with chapters attached.
+///
+/// The dedicated `/chapters` route answers 500, while `/series` returns the
+/// same rows and carries each one's latest chapter when asked.
+fn latest_query(page: i32) -> String {
+	let mut qs = QueryParameters::new();
+	qs.push("page", Some(&page.to_string()));
+	qs.push("limit", Some(&LATEST_PAGE_SIZE.to_string()));
+	qs.push("chapters", Some("true"));
+	qs.push("group_details", Some("true"));
+	qs.push("sort", Some("date"));
+	qs.to_string()
+}
+
 fn fetch_series_list(query: &str) -> Result<(Vec<SeriesDto>, bool)> {
 	let response: ResponseDto<Vec<SeriesDto>> = get(&format!("{}/series?{query}", api_url()))?;
 	let data = response.data.unwrap_or_default();
@@ -627,16 +641,8 @@ impl Home for ScansGG {
 		}
 
 		// Latest Updates
-		let mut qs = QueryParameters::new();
-		qs.push("page", Some("1"));
-		qs.push("limit", Some(&LATEST_PAGE_SIZE.to_string()));
-		qs.push("chapters", Some("true"));
-		qs.push("series_details", Some("true"));
-		qs.push("group_details", Some("true"));
-		qs.push("collab_groups_details", Some("true"));
-		qs.push("sort", Some("date"));
 		if let Ok(response) =
-			get::<ResponseDto<Vec<SeriesDto>>>(&format!("{}/chapters?{qs}", api_url()))
+			get::<ResponseDto<Vec<SeriesDto>>>(&format!("{}/series?{}", api_url(), latest_query(1)))
 		{
 			let entries: Vec<MangaWithChapter> = response
 				.data
@@ -726,15 +732,8 @@ impl ListingProvider for ScansGG {
 				})
 			}
 			"latest" => {
-				let mut qs = QueryParameters::new();
-				qs.push("page", Some(&page.to_string()));
-				qs.push("limit", Some(&LATEST_PAGE_SIZE.to_string()));
-				qs.push("chapters", Some("true"));
-				qs.push("series_details", Some("true"));
-				qs.push("group_details", Some("true"));
-				qs.push("sort", Some("date"));
 				let response: ResponseDto<Vec<SeriesDto>> =
-					get(&format!("{}/chapters?{qs}", api_url()))?;
+					get(&format!("{}/series?{}", api_url(), latest_query(page)))?;
 				let data = response.data.unwrap_or_default();
 				let has_next_page = response.meta.map(|m| m.has_more).unwrap_or(false)
 					|| data.len() as i32 == LATEST_PAGE_SIZE;
