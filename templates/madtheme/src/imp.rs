@@ -184,37 +184,49 @@ pub trait Impl {
 					.unwrap_or_default()
 			}
 
+			/// Pulls a `var name = value;` assignment out of any inline script.
+			fn script_var(html: &Document, needle: &str, terminator: &str) -> Option<String> {
+				html.select("script")?.find_map(|script| {
+					let data = script.data()?;
+					let value = data.split_once(needle)?.1.split_once(terminator)?.0.trim();
+					(!value.is_empty()).then(|| value.into())
+				})
+			}
+
+			/// Finds the handle the chapter api expects for this book.
+			///
+			/// The configured form is tried first, then the other one, since
+			/// sites disagree on which of the two they inline.
+			fn book_handle(html: &Document, use_slug: bool) -> Option<String> {
+				let by_slug = || script_var(html, "var bookSlug = \"", "\";");
+				let by_id = || script_var(html, "var bookId = ", ";");
+				if use_slug {
+					by_slug().or_else(by_id)
+				} else {
+					by_id().or_else(by_slug)
+				}
+			}
+
+			fn api_chapters(html: &Document, params: &Params) -> Option<Vec<Chapter>> {
+				let handle = book_handle(html, params.use_slug_search)?;
+				let url = format!(
+					"{}/api/manga/{handle}/chapters/?source=detail",
+					params.base_url
+				);
+				let html = Request::get(&url).ok()?.html().ok()?;
+				Some(parse_chapter_elements(&html, params))
+			}
+
 			let fetch_api = html
 				.select_first("div#show-more-chapters > span")
 				.is_some_and(|el| el.attr("onclick").is_some_and(|s| s == "getChapters()"));
 
+			// The api holds the full list, but the page always carries a usable
+			// one, so fall back to it rather than failing outright.
 			let chapters = if fetch_api {
-				let data = html
-					.select_first("body > div.layout > script")
-					.and_then(|el| el.data())
-					.ok_or(error!("Cannot find script"))?;
-
-				let url = format!(
-					"{}/api/manga/{}/chapters/?source=detail",
-					params.base_url,
-					if params.use_slug_search {
-						data.split_once("var bookSlug = \"")
-							.ok_or(error!("String not found: `var bookSlug = \"`"))?
-							.1
-							.split_once("\";")
-							.ok_or_else(|| error!("String not found: `\";`"))?
-							.0
-					} else {
-						data.split_once("var bookId = ")
-							.ok_or(error!("String not found: `var bookId = `"))?
-							.1
-							.split_once(";")
-							.ok_or_else(|| error!("String not found: `;`"))?
-							.0
-					}
-				);
-				let html = Request::get(&url)?.html()?;
-				parse_chapter_elements(&html, params)
+				api_chapters(&html, params)
+					.filter(|chapters| !chapters.is_empty())
+					.unwrap_or_else(|| parse_chapter_elements(&html, params))
 			} else {
 				parse_chapter_elements(&html, params)
 			};

@@ -1,8 +1,8 @@
 #![no_std]
 use aidoku::{
-	Chapter, ContentRating, FilterItem, FilterValue, HomeComponent, HomeComponentValue, HomeLayout,
-	Manga, MangaPageResult, MangaWithChapter, Result, Source,
-	alloc::{String, Vec, string::ToString, vec},
+	Chapter, ContentRating, FilterValue, HomeComponent, HomeComponentValue, HomeLayout, Manga,
+	MangaPageResult, MangaWithChapter, Result, Source,
+	alloc::{String, Vec, string::ToString},
 	helpers::{string::StripPrefixOrSelf, uri::QueryParameters},
 	imports::defaults::defaults_get,
 	imports::html::Document,
@@ -290,32 +290,6 @@ impl Impl for KaliScan {
 				});
 			}
 		}
-
-		let genres = [
-			("Action", "action"),
-			("Adventure", "adventure"),
-			("Comedy", "comedy"),
-			("Drama", "drama"),
-			("Fantasy", "fantasy"),
-			("Isekai", "isekai"),
-			("Romance", "romance"),
-			("Shoujo", "shoujo"),
-		]
-		.into_iter()
-		.map(|(title, id)| FilterItem {
-			title: title.into(),
-			values: Some(vec![FilterValue::MultiSelect {
-				id: "genre[]".into(),
-				included: vec![id.into()],
-				excluded: Vec::new(),
-			}]),
-		})
-		.collect();
-		components.push(HomeComponent {
-			title: Some("Genres".into()),
-			subtitle: None,
-			value: HomeComponentValue::Filters(genres),
-		});
 
 		Ok(HomeLayout { components })
 	}

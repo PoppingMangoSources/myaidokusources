@@ -1,9 +1,9 @@
 #![no_std]
 use aidoku::{
-	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterItem, FilterValue, Home,
-	HomeComponent, HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider,
-	Manga, MangaPageResult, MangaStatus, MangaWithChapter, Page, PageContent, PageContext, Result,
-	Source, Viewer,
+	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterValue, Home, HomeComponent,
+	HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider, Manga,
+	MangaPageResult, MangaStatus, MangaWithChapter, Page, PageContent, PageContext, Result, Source,
+	Viewer,
 	alloc::{String, Vec, string::ToString, vec},
 	helpers::uri::QueryParameters,
 	imports::html::{Document, Element},
@@ -16,43 +16,6 @@ const BASE_URL: &str = "https://www.mangatown.com";
 
 const ADULT_GENRES: &[&str] = &["adult", "hentai", "lolicon", "shotacon"];
 const MATURE_GENRES: &[&str] = &["ecchi", "mature", "smut", "yaoi", "yuri"];
-
-const GENRES: &[(&str, &str)] = &[
-	("4_koma", "4 Koma"),
-	("action", "Action"),
-	("adventure", "Adventure"),
-	("comedy", "Comedy"),
-	("cooking", "Cooking"),
-	("doujinshi", "Doujinshi"),
-	("drama", "Drama"),
-	("ecchi", "Ecchi"),
-	("fantasy", "Fantasy"),
-	("gender_bender", "Gender Bender"),
-	("harem", "Harem"),
-	("historical", "Historical"),
-	("horror", "Horror"),
-	("martial_arts", "Martial Arts"),
-	("mature", "Mature"),
-	("mecha", "Mecha"),
-	("music", "Music"),
-	("mystery", "Mystery"),
-	("one_shot", "One Shot"),
-	("psychological", "Psychological"),
-	("reverse_harem", "Reverse Harem"),
-	("romance", "Romance"),
-	("school_life", "School Life"),
-	("sci_fi", "Sci Fi"),
-	("shotacon", "Shotacon"),
-	("slice_of_life", "Slice Of Life"),
-	("smut", "Smut"),
-	("sports", "Sports"),
-	("supernatural", "Supernatural"),
-	("suspense", "Suspense"),
-	("tragedy", "Tragedy"),
-	("vampire", "Vampire"),
-	("webtoons", "Webtoons"),
-	("youkai", "Youkai"),
-];
 
 fn sort_token(index: i32) -> &'static str {
 	match index {
@@ -805,23 +768,6 @@ impl Home for MangaTown {
 				}
 			}
 		}
-
-		let genre_items: Vec<FilterItem> = GENRES
-			.iter()
-			.map(|(id, title)| FilterItem {
-				title: (*title).into(),
-				values: Some(vec![FilterValue::MultiSelect {
-					id: "genres".into(),
-					included: vec![(*id).into()],
-					excluded: Vec::new(),
-				}]),
-			})
-			.collect();
-		components.push(HomeComponent {
-			title: Some("Genres".into()),
-			subtitle: None,
-			value: HomeComponentValue::Filters(genre_items),
-		});
 
 		Ok(HomeLayout { components })
 	}

@@ -184,31 +184,3 @@ pub struct ChapterPageEdge {
 pub struct ChapterPages {
 	pub edges: Vec<ChapterPageEdge>,
 }
-
-pub const GENRE_OPTIONS: &[&str] = &[
-	"Action",
-	"Adventure",
-	"Comedy",
-	"Drama",
-	"Ecchi",
-	"Fantasy",
-	"Harem",
-	"Historical",
-	"Horror",
-	"Isekai",
-	"Josei",
-	"Martial Arts",
-	"Mecha",
-	"Mystery",
-	"Romance",
-	"School",
-	"Sci-Fi",
-	"Seinen",
-	"Shoujo",
-	"Shounen",
-	"Slice of Life",
-	"Sports",
-	"Supernatural",
-	"Thriller",
-	"Tragedy",
-];

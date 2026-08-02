@@ -1,8 +1,8 @@
 #![no_std]
 use aidoku::{
-	Chapter, DeepLinkHandler, DeepLinkResult, FilterItem, FilterValue, Home, HomeComponent,
-	HomeComponentValue, HomeLayout, Link, Listing, ListingProvider, Manga, MangaPageResult,
-	MangaWithChapter, Page, PageContent, Result, Source,
+	Chapter, DeepLinkHandler, DeepLinkResult, FilterValue, Home, HomeComponent, HomeComponentValue,
+	HomeLayout, Link, Listing, ListingProvider, Manga, MangaPageResult, MangaWithChapter, Page,
+	PageContent, Result, Source,
 	alloc::{String, Vec, string::ToString, vec},
 	imports::net::Request,
 	imports::std::{parse_date, send_partial_result},
@@ -402,23 +402,6 @@ impl Home for Mvlempyr {
 				},
 			});
 		}
-
-		let genre_items: Vec<FilterItem> = GENRES
-			.iter()
-			.map(|(id, title)| FilterItem {
-				title: (*title).into(),
-				values: Some(vec![FilterValue::MultiSelect {
-					id: "genres".into(),
-					included: vec![(*id).into()],
-					excluded: Vec::new(),
-				}]),
-			})
-			.collect();
-		components.push(HomeComponent {
-			title: Some("Genres".into()),
-			subtitle: None,
-			value: HomeComponentValue::Filters(genre_items),
-		});
 
 		Ok(HomeLayout { components })
 	}

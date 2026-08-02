@@ -2,7 +2,7 @@
 	"info": {
 		"id": "en.vymanga",
 		"name": "VyManga",
-		"version": 4,
+		"version": 5,
 		"url": "https://vymanga.com",
 		"contentRating": 1,
 		"languages": ["en"],

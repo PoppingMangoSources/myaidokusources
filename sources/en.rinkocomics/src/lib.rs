@@ -1,13 +1,18 @@
 #![no_std]
 use aidoku::{
-	Chapter, ContentRating, FilterItem, FilterValue, HomeComponent, HomeComponentValue, HomeLayout,
-	Manga, MangaWithChapter, Result, Source,
-	alloc::{String, Vec, string::ToString, vec},
+	Chapter, ContentRating, HomeComponent, HomeComponentValue, HomeLayout, Manga, MangaWithChapter,
+	Result, Source,
+	alloc::{String, Vec, string::ToString},
 	helpers::string::StripPrefixOrSelf,
-	imports::{html::Element, net::Request},
+	imports::{
+		html::{Element, Html},
+		net::Request,
+	},
 	prelude::*,
 };
 use madara::{Impl, Madara, Params};
+
+mod chapters;
 
 const BASE_URL: &str = "https://rinkocomics.com";
 
@@ -78,6 +83,32 @@ impl Impl for RinkoComics {
 			source_path: "comic".into(),
 			..Default::default()
 		}
+	}
+
+	/// The site paginates chapters through its own ajax action instead of the
+	/// Madara endpoint, so the chapter list is collected here.
+	fn get_manga_update(
+		&self,
+		params: &Params,
+		mut manga: Manga,
+		needs_details: bool,
+		needs_chapters: bool,
+	) -> Result<Manga> {
+		let url = format!("{}{}", params.base_url, manga.key);
+		let body = Request::get(&url)?
+			.header("Referer", &format!("{}/", params.base_url))
+			.string()?;
+		let html = Html::parse_with_url(&body, &url)?;
+
+		if needs_details {
+			self.apply_manga_details(params, &mut manga, &html, &url);
+		}
+
+		if needs_chapters {
+			manga.chapters = Some(chapters::parse_chapters(&body, &html, &params.base_url)?);
+		}
+
+		Ok(manga)
 	}
 
 	fn get_home(&self, params: &Params) -> Result<HomeLayout> {
@@ -255,32 +286,6 @@ impl Impl for RinkoComics {
 				},
 			});
 		}
-
-		let genres = [
-			("Action", "action"),
-			("Comedy", "comedy"),
-			("Drama", "drama"),
-			("Fantasy", "fantasy"),
-			("Josei", "josei"),
-			("Romance", "romance"),
-			("Shoujo", "shoujo"),
-			("Smut", "smut"),
-		]
-		.into_iter()
-		.map(|(title, id)| FilterItem {
-			title: title.into(),
-			values: Some(vec![FilterValue::MultiSelect {
-				id: "genre[]".into(),
-				included: vec![id.into()],
-				excluded: Vec::new(),
-			}]),
-		})
-		.collect();
-		components.push(HomeComponent {
-			title: Some("Genres".into()),
-			subtitle: None,
-			value: HomeComponentValue::Filters(genres),
-		});
 
 		Ok(HomeLayout { components })
 	}

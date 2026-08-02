@@ -1,9 +1,8 @@
 #![no_std]
 use aidoku::{
-	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterItem, FilterValue, Home,
-	HomeComponent, HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider,
-	Manga, MangaPageResult, MangaStatus, MangaWithChapter, Page, PageContent, Result, Source,
-	Viewer,
+	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterValue, Home, HomeComponent,
+	HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider, Manga,
+	MangaPageResult, MangaStatus, MangaWithChapter, Page, PageContent, Result, Source, Viewer,
 	alloc::{String, Vec, string::ToString, vec},
 	helpers::uri::QueryParameters,
 	imports::defaults::defaults_get,
@@ -566,39 +565,6 @@ impl Home for NovelArchive {
 				}
 			}
 		}
-
-		let genres = [
-			"Action",
-			"Adventure",
-			"Comedy",
-			"Drama",
-			"Fantasy",
-			"Historical",
-			"Horror",
-			"Mystery",
-			"Romance",
-			"Sci-fi",
-			"Slice of Life",
-			"Supernatural",
-			"Tragedy",
-			"Wuxia",
-			"Xianxia",
-		]
-		.into_iter()
-		.map(|genre| FilterItem {
-			title: genre.into(),
-			values: Some(vec![FilterValue::MultiSelect {
-				id: "genres".into(),
-				included: vec![genre.into()],
-				excluded: Vec::new(),
-			}]),
-		})
-		.collect();
-		components.push(HomeComponent {
-			title: Some("Genres".into()),
-			subtitle: None,
-			value: HomeComponentValue::Filters(genres),
-		});
 
 		Ok(HomeLayout { components })
 	}

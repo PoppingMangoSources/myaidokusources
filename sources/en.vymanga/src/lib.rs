@@ -537,13 +537,7 @@ impl Home for VyManga {
 						.collect()
 				})
 				.unwrap_or_default();
-			if !genres.is_empty() {
-				components.push(HomeComponent {
-					title: Some("Genres".into()),
-					subtitle: None,
-					value: HomeComponentValue::Filters(genres),
-				});
-			}
+			if !genres.is_empty() {}
 		}
 		if components.is_empty() {
 			bail!("VyManga is currently unavailable from this network");

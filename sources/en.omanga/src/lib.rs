@@ -1,8 +1,8 @@
 #![no_std]
 use aidoku::{
-	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterItem, FilterValue, Home,
-	HomeComponent, HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider,
-	Manga, MangaPageResult, MangaStatus, Page, PageContent, PageContext, Result, Source, Viewer,
+	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterValue, Home, HomeComponent,
+	HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider, Manga,
+	MangaPageResult, MangaStatus, Page, PageContent, PageContext, Result, Source, Viewer,
 	alloc::{String, Vec, string::ToString, vec},
 	helpers::uri::QueryParameters,
 	imports::net::Request,
@@ -451,37 +451,6 @@ impl Home for OManga {
 			false,
 		);
 
-		components.push(HomeComponent {
-			title: Some("Top Series".into()),
-			subtitle: None,
-			value: HomeComponentValue::Filters(vec![
-				FilterItem {
-					title: "From Korea".into(),
-					values: Some(vec![FilterValue::MultiSelect {
-						id: "type".into(),
-						included: vec!["Manhwa".into()],
-						excluded: Vec::new(),
-					}]),
-				},
-				FilterItem {
-					title: "From Japan".into(),
-					values: Some(vec![FilterValue::MultiSelect {
-						id: "type".into(),
-						included: vec!["Manga".into()],
-						excluded: Vec::new(),
-					}]),
-				},
-				FilterItem {
-					title: "From China".into(),
-					values: Some(vec![FilterValue::MultiSelect {
-						id: "type".into(),
-						included: vec!["Manhua".into()],
-						excluded: Vec::new(),
-					}]),
-				},
-			]),
-		});
-
 		for (title, id, query, ranked) in [
 			("New Season", "new_season", "sort=created_at", false),
 			("Most Liked", "most_liked", "sort=likes", false),
@@ -496,47 +465,6 @@ impl Home for OManga {
 		] {
 			push_scroller(&mut components, title, id, query, ranked);
 		}
-
-		let genres = [
-			"Action",
-			"Adventure",
-			"Comedy",
-			"Drama",
-			"Fantasy",
-			"Historical",
-			"Horror",
-			"Josei",
-			"Martial Arts",
-			"Mystery",
-			"Psychological",
-			"Romance",
-			"School Life",
-			"Sci-Fi",
-			"Seinen",
-			"Shoujo",
-			"Shounen",
-			"Slice of Life",
-			"Sports",
-			"Supernatural",
-			"Tragedy",
-		];
-		components.push(HomeComponent {
-			title: Some("Genres".into()),
-			subtitle: None,
-			value: HomeComponentValue::Filters(
-				genres
-					.into_iter()
-					.map(|genre| FilterItem {
-						title: genre.into(),
-						values: Some(vec![FilterValue::MultiSelect {
-							id: "genre".into(),
-							included: vec![genre.into()],
-							excluded: Vec::new(),
-						}]),
-					})
-					.collect(),
-			),
-		});
 
 		Ok(HomeLayout { components })
 	}

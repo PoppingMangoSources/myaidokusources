@@ -1,8 +1,8 @@
 #![no_std]
 use aidoku::{
-	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterItem, FilterValue, Home,
-	HomeComponent, HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider,
-	Manga, MangaPageResult, MangaWithChapter, Page, PageContent, PageContext, Result, Source,
+	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterValue, Home, HomeComponent,
+	HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider, Manga,
+	MangaPageResult, MangaWithChapter, Page, PageContent, PageContext, Result, Source,
 	alloc::{String, Vec, string::ToString, vec},
 	helpers::uri::QueryParameters,
 	imports::defaults::defaults_get,
@@ -670,25 +670,6 @@ impl Home for ScansGG {
 		}
 
 		// Genre shortcuts.
-		let genre_items: Vec<FilterItem> = (1..=49)
-			.filter_map(|id| tag_name(id).map(|name| (id, name)))
-			.map(|(id, name)| FilterItem {
-				title: name.into(),
-				values: Some(vec![FilterValue::MultiSelect {
-					id: "genres".into(),
-					included: vec![id.to_string()],
-					excluded: Vec::new(),
-				}]),
-			})
-			.collect();
-		if !genre_items.is_empty() {
-			components.push(HomeComponent {
-				title: Some("Genres".into()),
-				subtitle: None,
-				value: HomeComponentValue::Filters(genre_items),
-			});
-		}
-
 		Ok(HomeLayout { components })
 	}
 }

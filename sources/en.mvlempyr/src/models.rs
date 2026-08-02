@@ -15,43 +15,6 @@ pub const LATEST_PAGE_SIZE: i32 = 30;
 const ADULT_GENRES: &[&str] = &["adult", "smut", "yaoi", "yuri", "harem"];
 const MATURE_GENRES: &[&str] = &["mature", "ecchi", "josei", "seinen"];
 
-pub const GENRES: &[(&str, &str)] = &[
-	("action", "Action"),
-	("adult", "Adult"),
-	("adventure", "Adventure"),
-	("comedy", "Comedy"),
-	("drama", "Drama"),
-	("ecchi", "Ecchi"),
-	("fan-fiction", "Fan-Fiction"),
-	("fantasy", "Fantasy"),
-	("gender-bender", "Gender Bender"),
-	("harem", "Harem"),
-	("historical", "Historical"),
-	("horror", "Horror"),
-	("josei", "Josei"),
-	("martial-arts", "Martial Arts"),
-	("mature", "Mature"),
-	("mecha", "Mecha"),
-	("mystery", "Mystery"),
-	("psychological", "Psychological"),
-	("romance", "Romance"),
-	("school-life", "School Life"),
-	("sci-fi", "Sci-fi"),
-	("seinen", "Seinen"),
-	("shoujo", "Shoujo"),
-	("shounen", "Shounen"),
-	("slice-of-life", "Slice of Life"),
-	("smut", "Smut"),
-	("sports", "Sports"),
-	("supernatural", "Supernatural"),
-	("tragedy", "Tragedy"),
-	("wuxia", "Wuxia"),
-	("xianxia", "Xianxia"),
-	("xuanhuan", "Xuanhuan"),
-	("yaoi", "Yaoi"),
-	("yuri", "Yuri"),
-];
-
 #[derive(Clone, Default)]
 pub struct Novel {
 	pub name: String,

@@ -6,6 +6,7 @@ use aidoku::{
 	UpdateStrategy, Viewer,
 	alloc::{String, Vec, string::ToString, vec},
 	helpers::uri::encode_uri_component,
+	imports::html::Element,
 	imports::net::Request,
 	imports::std::{parse_date, send_partial_result},
 	prelude::*,
@@ -467,6 +468,104 @@ fn chapter_title_from(title: &str) -> Option<String> {
 	Some(trimmed.to_string())
 }
 
+/// Reads a `.book-item` card straight out of the page.
+///
+/// The carousel reuses the same card markup as the browse lists, but with
+/// looser class names, so every field falls back through the variants the
+/// site is known to emit.
+fn book_item_manga(item: &Element) -> Option<Manga> {
+	let link = item
+		.select_first("a[itemprop=url]")
+		.or_else(|| item.select_first("a[href*='/novel/']"))
+		.or_else(|| item.select_first("a"))?;
+	let url = link.attr("abs:href").or_else(|| link.attr("href"));
+	let title = item
+		.select_first(".book-name")
+		.and_then(|el| el.text())
+		.or_else(|| {
+			item.select_first(".book-pic")
+				.and_then(|el| el.attr("title"))
+		})
+		.or_else(|| link.attr("title"))
+		.or_else(|| item.select_first("img").and_then(|img| img.attr("alt")))
+		.map(|title| title.trim().to_string())
+		.filter(|title| !title.is_empty())?;
+
+	// The library button carries the numeric id the rest of the source keys on;
+	// without it the card can still be opened through its url.
+	let key = item
+		.select_first(".bk-add-lib")
+		.and_then(|el| el.attr("book_id"))
+		.or_else(|| {
+			item.select_first("[book_id]")
+				.and_then(|el| el.attr("book_id"))
+		})
+		.or_else(|| url.clone())?;
+
+	let cover = item
+		.select_first(".book-pic img")
+		.or_else(|| item.select_first("img"))
+		.and_then(|image| {
+			image
+				.attr("abs:cover_url")
+				.or_else(|| image.attr("abs:src"))
+				.or_else(|| image.attr("abs:data-src"))
+		});
+
+	let tags: Vec<String> = item
+		.select(".book-tags .book-tag, .book-cate a, .book-info a[href*='/category/']")
+		.map(|tags| {
+			tags.filter_map(|tag| tag.text())
+				.map(|tag| tag.trim().to_string())
+				.filter(|tag| !tag.is_empty())
+				.collect()
+		})
+		.unwrap_or_default();
+
+	let rating = item
+		.select_first(".book-rate-num, [itemprop='ratingValue']")
+		.and_then(|el| el.text())
+		.map(|text| text.trim().to_string())
+		.filter(|text| !text.is_empty());
+	let summary = item
+		.select_first(".book-summary-content, .book-desc, .book-summary, .book-intro")
+		.and_then(|el| el.text())
+		.map(|text| text.trim().to_string())
+		.filter(|text| !text.is_empty());
+	// Aidoku has nowhere to put a score, so it leads the blurb instead.
+	let description = match (rating, summary) {
+		(Some(rating), Some(summary)) => Some(format!("★ {rating} · {summary}")),
+		(Some(rating), None) => Some(format!("★ {rating}")),
+		(None, summary) => summary,
+	};
+
+	let is_novel = item
+		.select_first(".book-type")
+		.and_then(|el| el.text())
+		.map(|kind| kind.to_lowercase().contains("novel"))
+		.unwrap_or_else(|| {
+			url.as_deref()
+				.map(|url| url.contains("/novel/"))
+				.unwrap_or(false)
+		});
+
+	Some(Manga {
+		key,
+		title,
+		cover,
+		description,
+		content_rating: content_rating_for(&tags),
+		viewer: if is_novel {
+			Viewer::Vertical
+		} else {
+			Viewer::RightToLeft
+		},
+		tags: (!tags.is_empty()).then_some(tags),
+		url,
+		..Default::default()
+	})
+}
+
 fn book_to_link(book: Book) -> Link {
 	let manga = book_to_manga(book);
 	Link {
@@ -481,45 +580,19 @@ impl Home for NovelCool {
 	fn get_home(&self) -> Result<HomeLayout> {
 		let mut components: Vec<HomeComponent> = Vec::new();
 
-		let mut featured_books = Vec::new();
-		if let Ok(books) = browse("hot", "novel", 1) {
-			featured_books.extend(books);
-		}
-		if let Ok(books) = browse("hot", "manga", 1) {
-			featured_books.extend(books);
-		}
-		let mut entries = Vec::new();
-		if let Ok(html) =
-			Request::get(DOMAIN).and_then(|request| request.header("User-Agent", USER_AGENT).html())
-			&& let Some(items) = html.select(".index-carousel .carousel-item")
-		{
-			for item in items {
-				let title = item
-					.select_first(".book-name")
-					.and_then(|el| el.text())
-					.or_else(|| {
-						item.select_first(".book-pic")
-							.and_then(|el| el.attr("title"))
-					})
-					.unwrap_or_default();
-				let Some(index) = featured_books
-					.iter()
-					.position(|book| book.name.trim().eq_ignore_ascii_case(title.trim()))
-				else {
-					continue;
-				};
-				let manga = book_to_manga(featured_books.swap_remove(index));
-				// The site's `bg_url` carousel attribute is presentation artwork and can
-				// resolve to the active slide repeatedly. Keep the API's per-book cover.
-				entries.push(manga);
-			}
-		}
+		// The carousel holds several book cards per slide, so the cards are read
+		// directly rather than matched back against a browse listing by title.
+		let mut entries: Vec<Manga> = Request::get(DOMAIN)
+			.and_then(|request| request.header("User-Agent", USER_AGENT).html())
+			.ok()
+			.and_then(|html| html.select(".index-carousel .carousel-item .book-item"))
+			.map(|items| items.filter_map(|item| book_item_manga(&item)).collect())
+			.unwrap_or_default();
 		if entries.is_empty() {
-			entries = featured_books
-				.into_iter()
-				.take(10)
-				.map(book_to_manga)
-				.collect();
+			// Only worth paying for the api round trips when the carousel is gone.
+			let mut books = browse("hot", "novel", 1).unwrap_or_default();
+			books.extend(browse("hot", "manga", 1).unwrap_or_default());
+			entries = books.into_iter().take(10).map(book_to_manga).collect();
 		}
 		let mut seen_keys = Vec::new();
 		let mut seen_covers = Vec::new();

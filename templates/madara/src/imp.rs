@@ -89,44 +89,7 @@ pub trait Impl {
 		let html = self.modify_request(params, Request::get(&url)?)?.html()?;
 
 		if needs_details {
-			manga.title = html
-				.select_first(&params.details_title_selector)
-				.and_then(|e| e.own_text())
-				.unwrap_or(manga.title);
-			manga.cover = html
-				.select_first(&params.details_cover_selector)
-				.and_then(|img| img.img_attr(params.use_style_images))
-				.or(manga.cover);
-			manga.artists = html.select(&params.details_artist_selector).map(|els| {
-				els.filter_map(|span| span.text())
-					.filter(|t| !t.is_empty())
-					.collect()
-			});
-			manga.authors = html.select(&params.details_author_selector).map(|els| {
-				els.filter_map(|span| span.text())
-					.filter(|t| !t.is_empty())
-					.collect()
-			});
-			manga.description = html
-				.select_first(&params.details_description_selector)
-				.and_then(|div| div.text_with_newlines())
-				.map(|t| t.trim().into());
-			manga.tags = html
-				.select(&params.details_tag_selector)
-				.map(|els| els.filter_map(|el| el.text()).collect());
-			manga.url = Some(url.clone());
-			manga.status = html
-				.select_first(&params.details_status_selector)
-				.and_then(|span| span.text())
-				.map(|text| self.get_manga_status(&text))
-				.unwrap_or_default();
-			manga.content_rating = self.get_manga_content_rating(&html, &manga);
-			manga.viewer = html
-				.select_first(&params.details_type_selector)
-				.and_then(|el| el.own_text())
-				.map(|text| self.get_manga_viewer(&text, params.default_viewer))
-				.unwrap_or(params.default_viewer);
-			send_partial_result(&manga);
+			self.apply_manga_details(params, &mut manga, &html, &url);
 		}
 
 		if needs_chapters {
@@ -163,6 +126,51 @@ pub trait Impl {
 		}
 
 		Ok(manga)
+	}
+
+	/// Fills in a manga's details from its already-fetched detail page.
+	///
+	/// Split out so sources that fetch chapters their own way can reuse the
+	/// shared detail parsing without refetching the page.
+	fn apply_manga_details(&self, params: &Params, manga: &mut Manga, html: &Document, url: &str) {
+		manga.title = html
+			.select_first(&params.details_title_selector)
+			.and_then(|e| e.own_text())
+			.unwrap_or(core::mem::take(&mut manga.title));
+		manga.cover = html
+			.select_first(&params.details_cover_selector)
+			.and_then(|img| img.img_attr(params.use_style_images))
+			.or(manga.cover.take());
+		manga.artists = html.select(&params.details_artist_selector).map(|els| {
+			els.filter_map(|span| span.text())
+				.filter(|t| !t.is_empty())
+				.collect()
+		});
+		manga.authors = html.select(&params.details_author_selector).map(|els| {
+			els.filter_map(|span| span.text())
+				.filter(|t| !t.is_empty())
+				.collect()
+		});
+		manga.description = html
+			.select_first(&params.details_description_selector)
+			.and_then(|div| div.text_with_newlines())
+			.map(|t| t.trim().into());
+		manga.tags = html
+			.select(&params.details_tag_selector)
+			.map(|els| els.filter_map(|el| el.text()).collect());
+		manga.url = Some(url.into());
+		manga.status = html
+			.select_first(&params.details_status_selector)
+			.and_then(|span| span.text())
+			.map(|text| self.get_manga_status(&text))
+			.unwrap_or_default();
+		manga.content_rating = self.get_manga_content_rating(html, manga);
+		manga.viewer = html
+			.select_first(&params.details_type_selector)
+			.and_then(|el| el.own_text())
+			.map(|text| self.get_manga_viewer(&text, params.default_viewer))
+			.unwrap_or(params.default_viewer);
+		send_partial_result(manga);
 	}
 
 	fn get_manga_status(&self, str: &str) -> MangaStatus {

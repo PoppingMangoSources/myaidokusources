@@ -1,9 +1,8 @@
 #![no_std]
 use aidoku::{
-	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterItem, FilterValue, Home,
-	HomeComponent, HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider,
-	Manga, MangaPageResult, MangaStatus, MangaWithChapter, Page, PageContent, PageContext, Result,
-	Source,
+	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterValue, Home, HomeComponent,
+	HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider, Manga,
+	MangaPageResult, MangaStatus, MangaWithChapter, Page, PageContent, PageContext, Result, Source,
 	alloc::{String, Vec, string::ToString, vec},
 	helpers::uri::QueryParameters,
 	imports::html::{Document, Element, Html},
@@ -652,40 +651,6 @@ impl Home for LikeManga {
 					},
 				});
 			}
-		}
-
-		let mut seen: Vec<String> = Vec::new();
-		let genres: Vec<FilterItem> = doc
-			.select("a[href*='/genres/']")
-			.map(|items| {
-				items
-					.filter_map(|link| {
-						let href = link.attr("href")?;
-						let genre = href.split("/genres/").nth(1)?.split('/').next()?;
-						let title = link.text().map(|text| clean(&text)).unwrap_or_default();
-						if genre.is_empty() || title.is_empty() || seen.iter().any(|id| id == genre)
-						{
-							return None;
-						}
-						seen.push(genre.into());
-						Some(FilterItem {
-							title,
-							values: Some(vec![FilterValue::MultiSelect {
-								id: "genres".into(),
-								included: vec![genre.into()],
-								excluded: Vec::new(),
-							}]),
-						})
-					})
-					.collect()
-			})
-			.unwrap_or_default();
-		if !genres.is_empty() {
-			components.push(HomeComponent {
-				title: Some("Genres".into()),
-				subtitle: None,
-				value: HomeComponentValue::Filters(genres),
-			});
 		}
 
 		Ok(HomeLayout { components })

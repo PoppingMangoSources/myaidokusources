@@ -1,8 +1,8 @@
 #![no_std]
 use aidoku::{
-	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterItem, FilterValue, Home,
-	HomeComponent, HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider,
-	Manga, MangaPageResult, MangaWithChapter, Page, PageContent, PageContext, Result, Source,
+	Chapter, ContentRating, DeepLinkHandler, DeepLinkResult, FilterValue, Home, HomeComponent,
+	HomeComponentValue, HomeLayout, Link, LinkValue, Listing, ListingProvider, Manga,
+	MangaPageResult, MangaWithChapter, Page, PageContent, PageContext, Result, Source,
 	alloc::{String, Vec, string::ToString, vec},
 	helpers::uri::QueryParameters,
 	imports::net::Request,
@@ -16,13 +16,15 @@ mod settings;
 
 use models::*;
 
-fn api_get<T: DeserializeOwned>(url: &str) -> Result<T> {
-	Request::get(url)?
+fn api_request(url: &str) -> Result<Request> {
+	Ok(Request::get(url)?
 		.header("Referer", &format!("{DOMAIN}/"))
 		.header("Origin", DOMAIN)
-		.header("Accept", "application/json, text/plain, */*")
-		.send()?
-		.get_json_owned()
+		.header("Accept", "application/json, text/plain, */*"))
+}
+
+fn api_get<T: DeserializeOwned>(url: &str) -> Result<T> {
+	api_request(url)?.send()?.get_json_owned()
 }
 
 fn parse_iso_date(raw: &str) -> Option<i64> {
@@ -96,68 +98,73 @@ fn take_home_row(rows: &mut Vec<HomeRow>, slug: &str) -> Vec<SeriesItem> {
 		.unwrap_or_default()
 }
 
-fn period_filters(sort: &str) -> Vec<FilterItem> {
-	[("Today", "day"), ("Week", "week"), ("Month", "month")]
-		.into_iter()
-		.map(|(title, period)| FilterItem {
-			title: title.into(),
-			values: Some(vec![
-				FilterValue::Select {
-					id: "sort".into(),
-					value: sort.into(),
-				},
-				FilterValue::Select {
-					id: "period".into(),
-					value: period.into(),
-				},
-			]),
-		})
-		.collect()
+/// The rows the home screen is built from, in display order.
+const HOME_ROWS: [HomeRowSpec; 7] = [
+	HomeRowSpec::new("Popular Manga", "popular", None, Some("manga")),
+	HomeRowSpec::new("Popular Manhwa", "popular", None, Some("manhwa")),
+	HomeRowSpec::new("Popular Manhua", "popular", None, Some("manhua")),
+	HomeRowSpec::new(
+		"Most Bookmarked This Month",
+		"most_bookmarked",
+		Some("month"),
+		None,
+	),
+	HomeRowSpec::new("Top Rated Manga", "top_rated", None, Some("manga")),
+	HomeRowSpec::new("Top Rated Manhwa", "top_rated", None, Some("manhwa")),
+	HomeRowSpec::new("Top Rated Manhua", "top_rated", None, Some("manhua")),
+];
+
+struct HomeRowSpec {
+	title: &'static str,
+	sort: &'static str,
+	period: Option<&'static str>,
+	kind: Option<&'static str>,
 }
 
-fn type_filters(sort: &str) -> Vec<FilterItem> {
-	[
-		("Manga", "manga"),
-		("Manhwa", "manhwa"),
-		("Manhua", "manhua"),
-	]
-	.into_iter()
-	.map(|(title, kind)| FilterItem {
-		title: title.into(),
-		values: Some(vec![
-			FilterValue::Select {
-				id: "sort".into(),
-				value: sort.into(),
-			},
-			FilterValue::MultiSelect {
-				id: "type".into(),
-				included: vec![kind.into()],
-				excluded: Vec::new(),
-			},
-		]),
-	})
-	.collect()
-}
+impl HomeRowSpec {
+	const fn new(
+		title: &'static str,
+		sort: &'static str,
+		period: Option<&'static str>,
+		kind: Option<&'static str>,
+	) -> Self {
+		Self {
+			title,
+			sort,
+			period,
+			kind,
+		}
+	}
 
-fn sort_id(index: i32) -> &'static str {
-	match index {
-		1 => "top_rated",
-		2 => "trending",
-		3 => "updated",
-		4 => "added",
-		5 => "most_bookmarked",
-		_ => "popular",
+	/// The listing this row's "see all" opens.
+	fn listing(&self) -> Listing {
+		Listing {
+			id: match self.kind {
+				Some(kind) => format!("{}_{kind}", self.sort),
+				None => self.sort.into(),
+			},
+			name: self.title.into(),
+			..Default::default()
+		}
+	}
+
+	fn url(&self) -> String {
+		let types = self
+			.kind
+			.map(|kind| vec![kind.to_string()])
+			.unwrap_or_default();
+		series_url(self.sort, self.period, None, &types, &[], 0)
 	}
 }
 
-fn fetch_series(
+fn series_url(
 	sort: &str,
 	period: Option<&str>,
 	query: Option<&str>,
 	types: &[String],
 	statuses: &[String],
 	offset: i32,
-) -> Result<SeriesListResponse> {
+) -> String {
 	let mut qs = QueryParameters::new();
 	qs.push("sort", Some(sort));
 	qs.push("adult", Some(&settings::adult().to_string()));
@@ -184,7 +191,29 @@ fn fetch_series(
 	for status in statuses {
 		qs.push("status", Some(status));
 	}
-	api_get(&format!("{API_URL}/series?{qs}"))
+	format!("{API_URL}/series?{qs}")
+}
+
+fn sort_id(index: i32) -> &'static str {
+	match index {
+		1 => "top_rated",
+		2 => "trending",
+		3 => "updated",
+		4 => "added",
+		5 => "most_bookmarked",
+		_ => "popular",
+	}
+}
+
+fn fetch_series(
+	sort: &str,
+	period: Option<&str>,
+	query: Option<&str>,
+	types: &[String],
+	statuses: &[String],
+	offset: i32,
+) -> Result<SeriesListResponse> {
+	api_get(&series_url(sort, period, query, types, statuses, offset))
 }
 
 struct Chikari;
@@ -421,7 +450,22 @@ impl Home for Chikari {
 		for kind in settings::content_types() {
 			qs.push("type", Some(&kind));
 		}
-		let mut rows = api_get::<HomeResponse>(&format!("{API_URL}/home?{qs}"))?.rows;
+		// The home payload and every row query are independent, so they all go
+		// out together rather than stacking their latencies.
+		let mut urls = vec![format!("{API_URL}/home?{qs}")];
+		urls.extend(HOME_ROWS.iter().map(|row| row.url()));
+		let requests = urls
+			.iter()
+			.map(|url| api_request(url))
+			.collect::<Result<Vec<_>>>()?;
+		let mut responses = Request::send_all(requests).into_iter();
+
+		let mut rows = responses
+			.next()
+			.and_then(|response| response.ok())
+			.and_then(|response| response.get_json_owned::<HomeResponse>().ok())
+			.map(|data| data.rows)
+			.unwrap_or_default();
 		let mut components: Vec<HomeComponent> = Vec::new();
 		let popular: Vec<Manga> = take_home_row(&mut rows, "popular")
 			.into_iter()
@@ -439,11 +483,35 @@ impl Home for Chikari {
 			});
 		}
 
-		components.push(HomeComponent {
-			title: Some("Trending".into()),
-			subtitle: None,
-			value: HomeComponentValue::Filters(period_filters("trending")),
-		});
+		for (row, response) in HOME_ROWS.iter().zip(responses) {
+			let entries: Vec<Manga> = response
+				.ok()
+				.and_then(|response| response.get_json_owned::<SeriesListResponse>().ok())
+				.map(|data| data.items.into_iter().map(item_to_manga).collect())
+				.unwrap_or_default();
+			if entries.is_empty() {
+				continue;
+			}
+			let entries = entries.into_iter().map(Into::into).collect();
+			components.push(HomeComponent {
+				title: Some(row.title.into()),
+				subtitle: None,
+				// The bookmark row is a ranked countdown; the rest are shelves.
+				value: if row.period.is_some() {
+					HomeComponentValue::MangaList {
+						ranking: true,
+						page_size: Some(10),
+						entries,
+						listing: Some(row.listing()),
+					}
+				} else {
+					HomeComponentValue::Scroller {
+						entries,
+						listing: Some(row.listing()),
+					}
+				},
+			});
+		}
 
 		let recently_added: Vec<Link> = take_home_row(&mut rows, "recently-added")
 			.into_iter()
@@ -498,25 +566,24 @@ impl Home for Chikari {
 			});
 		}
 
-		for (title, value) in [
-			("Most Bookmarked", period_filters("most_bookmarked")),
-			("Popular by Type", type_filters("popular")),
-			("Top Rated by Type", type_filters("top_rated")),
-		] {
-			components.push(HomeComponent {
-				title: Some(title.into()),
-				subtitle: None,
-				value: HomeComponentValue::Filters(value),
-			});
-		}
-
 		Ok(HomeLayout { components })
 	}
 }
 
 impl ListingProvider for Chikari {
 	fn get_manga_list(&self, listing: Listing, page: i32) -> Result<MangaPageResult> {
-		let sort = match listing.id.as_str() {
+		// Home rows key their listing as `<sort>_<type>`, so peel the type off
+		// before resolving the sort.
+		let (id, types) = ["manga", "manhwa", "manhua"]
+			.into_iter()
+			.find_map(|kind| {
+				listing
+					.id
+					.strip_suffix(&format!("_{kind}"))
+					.map(|id| (id, vec![kind.to_string()]))
+			})
+			.unwrap_or((listing.id.as_str(), Vec::new()));
+		let sort = match id {
 			"popular" => "popular",
 			"trending" => "trending",
 			"top_rated" => "top_rated",
@@ -527,7 +594,7 @@ impl ListingProvider for Chikari {
 		};
 		let page = page.max(1);
 		let offset = (page - 1) * PAGE_SIZE;
-		let data = fetch_series(sort, None, None, &[], &[], offset)?;
+		let data = fetch_series(sort, None, None, &types, &[], offset)?;
 		let next_offset = offset + data.items.len() as i32;
 		let has_next_page = !data.items.is_empty() && next_offset < data.total;
 		let entries = data.items.into_iter().map(item_to_manga).collect();

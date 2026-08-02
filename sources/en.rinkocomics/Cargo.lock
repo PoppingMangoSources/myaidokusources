@@ -370,6 +370,8 @@ dependencies = [
  "aidoku",
  "aidoku-test",
  "madara",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
